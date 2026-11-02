@@ -76,17 +76,74 @@ The diagram separates policy decisions from kernel enforcement. The planner prop
 | Component | Responsibility | Trust level | Required behavior |
 |---|---|---|---|
 | Task API / CLI | Accept task, policy, workspace input and run options | Trusted | Validate request size, identity, policy version and task lifecycle |
-| Agent orchestrator | Maintain task state and invoke planner/tool adapters | Trusted but exposed to untrusted model output | Treat model output as data; never execute a raw model response without validation |
+| Agent orchestrator | Python + LangGraph state machine; LangChain model/tool abstractions | Trusted but exposed to untrusted model output | Treat model output as data; never execute a raw model response without validation |
 | Planner / LLM adapter | Produce a plan, code changes and proposed tool actions | Untrusted output | May use any provider; must not directly access the host or bypass the execution supervisor |
 | Intent/risk gate | Classify proposed actions against task intent and policy | Trusted decision logic | Return allow, deny, or approval-required with reason and policy evidence |
-| Policy validator | Validate JSON shape, paths, limits and profile names | Trusted | Reject unknown fields, unsafe paths, malformed limits and unsupported rights |
-| Privilege ratchet | Compute a monotonically narrowed effective policy | Trusted security-critical component | Enforce subset invariant and append every accepted policy transition to the audit log |
-| Execution supervisor | Create workspaces, set limits, launch and stop workers | Trusted security-critical component | No Docker socket or host secrets are exposed to task code |
-| Confined launcher | Install Landlock and seccomp before `exec` | Security-critical low-level component | Verify successful installation; fail closed on required-control failure |
+| Policy validator | Rust authoritative validator; Python performs boundary/schema checks only | Trusted | Reject unknown fields, unsafe paths, malformed limits and unsupported rights |
+| Privilege ratchet | Rust deterministic core called by the Python controller | Trusted security-critical component | Enforce subset invariant; Python cannot override its result |
+| Execution supervisor | Rust process supervisor + narrow Python Docker/controller adapter | Trusted security-critical component | No Docker socket or host secrets are exposed to task code |
+| Confined launcher | Rust native binary installs Landlock and seccomp before `exec` | Security-critical low-level component | Verify successful installation; fail closed on required-control failure |
 | Docker worker | Add namespaces, cgroups, image isolation and resource limits | Additional boundary | Run non-root, drop capabilities, no-new-privileges, read-only root, no network by default |
 | Process/resource monitor | Track exit status, process tree, time and resource use | Trusted observer | Detect timeout, runaway descendants and resource exhaustion |
 | Audit/event store | Store policy decisions, denials, process events and metrics | Trusted | Append-only event semantics; do not store secrets or full sensitive file contents |
 | Evaluation harness | Execute the same scenarios across experiment arms | Trusted test infrastructure | Preserve comparable workloads and record environment metadata |
+
+
+## 5A. Adopted implementation stack: Python + LangChain/LangGraph + Rust
+
+This is the authoritative implementation decision for the prototype. It refines the original synopsis methodology without changing the research question or security controls.
+
+| Layer | Technology | Responsibility | Security boundary |
+|---|---|---|---|
+| Agent/controller | Python 3.12+ | Task intake, model integration, context preparation, user-facing API/CLI | Trusted orchestration, but model output and retrieved repository content remain untrusted |
+| Agent construction | LangChain | Chat-model adapters, prompt templates, structured output schemas, tool interfaces | LangChain tools are proposal interfaces only; no privileged tool bypass |
+| Agent orchestration | LangGraph | Explicit state graph, deterministic gates, retries, checkpoints and human approval interrupts | Graph routing is workflow control, never the authoritative permission decision |
+| Policy and ratchet | Rust workspace | JSON policy parsing/validation, canonicalization, subset checks, authorization and policy versioning | Trusted security-critical component; deterministic and independently tested |
+| Native launcher/supervisor | Rust | Landlock, seccomp-BPF, `no_new_privs`, rlimits, process lifecycle and worker launch | Trusted security-critical component; fail closed |
+| Worker | Minimal Docker image(s) | Execute approved code/commands and descendants | Untrusted execution plane; no LLM credentials, Docker socket or controller secrets |
+| Evaluation | Python | Scenario generation, experiment orchestration, statistics and reports | Trusted test harness; does not weaken production enforcement |
+
+### LangGraph agent graph
+
+Implement a deliberately constrained graph, not an unrestricted ReAct agent with direct shell access:
+
+```mermaid
+flowchart TD
+    A[Receive task] --> B[Load minimal task context]
+    B --> C[LangChain planner: structured plan]
+    C --> D[Validate plan schema]
+    D --> E[Deterministic intent/action normalization]
+    E --> F[Rust policy + ratchet decision]
+    F -->|deny| G[Explain denial / revise plan]
+    F -->|approval required| H[Human approval interrupt]
+    H -->|approved new epoch| I[Create new policy snapshot]
+    H -->|denied| G
+    F -->|allow| J[Rust worker supervisor]
+    I --> J
+    J --> K[Collect bounded result]
+    K --> L[Update graph state and audit]
+    L --> M{Task complete?}
+    M -->|no| C
+    M -->|yes| N[Return result]
+```
+
+Required graph nodes: `intake`, `context_loader`, `planner`, `plan_validator`, `action_normalizer`, `policy_decision`, `approval_interrupt`, `worker_dispatch`, `result_collector`, `completion_check`, and `finalize`. The planner may propose actions only. The Rust policy engine must independently validate each action against the current effective policy before dispatch.
+
+### LangChain/LangGraph security and privacy rules
+
+- Use typed Pydantic/JSON schemas for planner output; reject unknown fields and malformed actions.
+- Do not expose generic shell, Docker, filesystem-root, policy-write, ratchet-write or arbitrary network tools to the model.
+- Expose narrow tools such as `read_workspace_file`, `propose_patch`, `run_approved_test`, and `request_permission`; every tool call is routed through the policy gate and Rust supervisor.
+- Keep deterministic security decisions in ordinary code/Rust. Never ask the LLM whether a policy expansion is safe or whether an operation is authorized.
+- LangGraph checkpoints must store only the minimum state required. Exclude API keys, raw secrets, full sensitive file contents and privileged host paths. Apply redaction before persistence.
+- Use local SQLite checkpoints for development/evaluation if persistence is needed. PostgreSQL is optional for a deployed multi-user service; do not add it solely for the prototype.
+- LangSmith tracing is **off by default**. Enable only after reviewing data handling and configuring input/output redaction; never send secrets, private repository contents or worker output containing sensitive data to hosted tracing.
+- Keep model calls outside the disposable worker. The worker has no LLM API credentials and no direct LangChain/LangGraph runtime.
+- Pin dependency versions and record Python, LangChain, LangGraph, Rust toolchain, crate, kernel and Docker image versions in each run manifest.
+
+### Rust implementation guidance
+
+Use a Cargo workspace with separate crates such as `policy-model`, `policy-validator`, `privilege-ratchet`, `linux-confinement`, `execution-launcher`, `process-supervisor`, and `protocol`. Prefer safe, maintained abstractions (for example, the Rust `landlock` crate) and isolate any raw syscall/libc usage in the smallest possible module. For seccomp, evaluate a maintained Rust seccomp crate or a narrowly scoped libseccomp binding; document the chosen API and kernel compatibility. Do not assume crate availability means the configuration is correct: test the effective kernel behavior.
 
 ## 6. Trust boundaries and data flow
 
@@ -350,7 +407,7 @@ All arms must receive equivalent task prompts, repository snapshots, model confi
 ## 15. Key design assumptions to confirm during implementation
 
 1. Linux is the target OS; the first implementation targets one architecture (prefer x86_64) and a documented kernel baseline.
-2. Python is the primary orchestrator/evaluation language, as stated in the synopsis. A small C launcher/helper may be used for Linux syscalls if it makes confinement easier to audit.
+2. **Implementation stack decision (supersedes the synopsis' initial Python-first implementation suggestion):** Python 3.12+ with LangChain and LangGraph is used for the AI controller/orchestration and evaluation harness; Rust is used for the trusted policy/ratchet core, native execution launcher, Linux confinement and process supervision. Python remains a supported untrusted workload runtime inside workers, not the security enforcement implementation language.
 3. The first agent adapter may use a deterministic/mock planner so the security framework can be tested independently of an LLM provider.
 4. Network access is disabled in protected execution by default.
 5. An explicit privilege step-up begins a new execution epoch; in-epoch policy changes only narrow privileges.
@@ -373,3 +430,7 @@ All arms must receive equivalent task prompts, repository snapshots, model confi
 - Docker, Engine security: https://docs.docker.com/engine/security/
 - Docker, rootless mode: https://docs.docker.com/engine/security/rootless/
 - Docker, resource constraints: https://docs.docker.com/engine/containers/resource_constraints/
+- LangChain/LangGraph overview and architecture: https://docs.langchain.com/oss/python/langgraph/overview
+- LangGraph workflows and agents: https://docs.langchain.com/oss/python/langgraph/workflows-agents
+- LangGraph checkpointing: https://docs.langchain.com/oss/python/langgraph/persistence
+- Rust Landlock crate documentation: https://docs.rs/landlock/latest/landlock/

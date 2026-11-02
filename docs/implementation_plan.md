@@ -4,62 +4,68 @@
 
 Build a Linux-based code-executing agent framework that can run legitimate coding tasks while enforcing a task-specific privilege boundary across the full process tree. The project must be evaluated experimentally against an isolated unconstrained baseline and a conventional sandbox-only baseline.
 
-The implementation should follow this order: establish a safe reproducible test environment, implement policy and ratchet logic, build and verify the execution boundary, add the agent loop, then run the comparative evaluation. Do not integrate a language model before the policy and executor can be tested deterministically.
+The implementation should follow this order: establish a safe reproducible test environment, implement policy and ratchet logic, build and verify the execution boundary, add the agent loop, then run the comparative evaluation. Do not integrate a live language model before the Rust policy/ratchet and executor can be tested deterministically. Build the LangGraph flow initially with a deterministic mock planner.
 
 ## 2. Recommended initial technology choices
 
 | Area | Initial choice | Reason / constraint |
 |---|---|---|
-| Orchestrator and evaluation harness | Python 3.12 | Matches the synopsis' Python-first methodology and has broad tooling support |
+| AI controller and evaluation harness | Python 3.12+ | Strong AI ecosystem; keeps model integration and experiment analysis productive |
+| Agent framework | LangChain + LangGraph | LangChain for model/structured-output/tool abstractions; LangGraph for explicit stateful, interruptible, auditable orchestration |
 | Policy format | JSON + JSON Schema | Versioned, machine-validated policy DSL |
 | API | FastAPI (optional for first milestone); CLI first | A CLI makes deterministic local testing easier before introducing an API |
-| Linux confinement | Small C launcher/helper using Linux headers and libseccomp, called by Python | Keeps syscall setup auditable and avoids relying on undocumented model-side behavior |
+| Trusted enforcement core and launcher | Rust (Cargo workspace) | Memory-safe systems implementation for policy/ratchet, Linux confinement, launcher and process supervision; isolate and review any unsafe syscall bindings |
 | Filesystem confinement | Landlock | Kernel-enforced filesystem restrictions with descendant inheritance |
 | Syscall confinement | seccomp-BPF / libseccomp | Reduces the syscall surface and is inherited by descendants when configured correctly |
 | Outer isolation | Docker Engine | Repeatable worker image, namespaces, cgroups, resource caps and no-network execution |
-| Agent adapter | Provider-independent interface; deterministic mock planner first | Keeps security tests independent of API credentials and model variability |
+| Agent adapter | LangChain chat-model interface behind LangGraph; deterministic mock planner first | Keeps security tests independent of API credentials and model variability |
 | Logs | JSONL events + JSON run metadata | Simple reproducibility and offline analysis |
 | Tests | pytest + scenario fixtures + shell/C integration probes | Unit, integration, adversarial and benchmark coverage |
 
 Pin the base image by digest in reproducible experiments. Do not assume the host's latest Python or kernel automatically matches the container/runtime requirements.
+
+## 2A. Mandatory agent-framework design
+
+- Use **LangChain** for model-provider adapters, prompt templates, structured outputs and narrowly scoped tool definitions.
+- Use **LangGraph** as the control-flow runtime. Implement an explicit graph with nodes for intake, context loading, planning, schema validation, deterministic action normalization, Rust policy decision, human approval interrupt, worker dispatch, result collection and completion.
+- The graph must not contain a direct host-shell tool, direct Docker client tool, policy-file write tool, unrestricted filesystem tool or unrestricted network tool.
+- All tool calls must be proposals routed to the trusted Python controller and then to the Rust policy/ratchet service. The Rust service is authoritative and revalidates the current policy at dispatch time.
+- Use Pydantic/JSON schemas for planner outputs. Treat model output, repository files and tool output as untrusted.
+- Use a deterministic mock planner until policy, ratchet and confinement tests pass. Then add the chosen LLM provider through LangChain without changing the enforcement boundary.
+- LangGraph checkpointing is optional for the first local prototype. If enabled, use a local development checkpointer and persist only redacted, minimal state. Hosted LangSmith tracing is disabled by default pending a privacy review.
 
 ## 3. Repository layout target
 
 ```text
 ratcheted-agent/
 ├── README.md
-├── pyproject.toml
-├── architecture.md
-├── workflow.md
-├── implementation_plan.md
-├── success_criteria.md
-├── test_criteria.md
-├── code_execution_agent.md
-├── schemas/
-│   ├── policy.schema.json
-│   ├── task.schema.json
-│   └── event.schema.json
-├── config/
-│   ├── policy-templates/
-│   └── syscall-profiles/
-├── src/ratchet_agent/
+├── pyproject.toml                 # Python controller/evaluation dependencies
+├── uv.lock
+├── Cargo.toml                     # Rust workspace
+├── Cargo.lock
+├── controller/                    # Python + LangChain + LangGraph
+│   ├── graph/                     # state, nodes, routes, graph builder
+│   ├── llm/                       # LangChain model adapters and prompts
+│   ├── tools/                     # narrow proposal tools only
 │   ├── api/
-│   ├── agent/
-│   ├── policy/
-│   ├── ratchet/
-│   ├── supervisor/
-│   ├── executor/
-│   ├── confinement/
-│   ├── audit/
-│   └── evaluation/
-├── native/
-│   └── confined-launcher/
-│       ├── launcher.c
-│       └── Makefile
+│   ├── worker_client/
+│   └── audit/
+├── crates/                        # Rust trusted enforcement workspace
+│   ├── policy-model/
+│   ├── policy-validator/
+│   ├── privilege-ratchet/
+│   ├── linux-confinement/
+│   ├── execution-launcher/
+│   ├── process-supervisor/
+│   └── protocol/
+├── worker/                        # worker request adapter; untrusted runtime remains isolated
+├── evaluation/                    # Python scenarios, baselines, metrics and reports
+├── schemas/
+├── config/
 ├── docker/
+│   ├── Dockerfile.controller
 │   ├── Dockerfile.executor
 │   ├── compose.yaml
-│   ├── .dockerignore
 │   └── seccomp/
 ├── tests/
 │   ├── unit/
@@ -68,21 +74,14 @@ ratcheted-agent/
 │   ├── adversarial/
 │   ├── workloads/
 │   └── performance/
-├── scenarios/
-│   ├── prompt-injection/
-│   ├── privilege-escalation/
-│   ├── subprocess/
-│   └── legitimate-coding/
-├── scripts/
-│   ├── preflight.sh
-│   ├── build-worker.sh
-│   ├── run-scenario.py
-│   └── compare-runs.py
-└── results/
-    └── .gitkeep
+└── docs/
+    ├── architecture.md
+    ├── workflow.md
+    ├── implementation_plan.md
+    ├── success_criteria.md
+    ├── test_criteria.md
+    └── code_execution_agent.md
 ```
-
-This is a target structure, not a requirement to create empty directories on day one. Keep modules small and avoid a monolithic `main.py`.
 
 ## 4. Global engineering rules for the AI implementation agent
 
@@ -113,14 +112,16 @@ Tasks:
 - [ ] Define attacker capabilities and protected assets.
 - [ ] Define trust boundaries and non-goals from `architecture.md`.
 - [ ] Add `.gitignore` for secrets, virtual environments, generated data and task outputs.
-- [ ] Add pinned Python dependencies and development tooling.
+- [ ] Add pinned Python dependencies and development tooling, including LangChain, LangGraph, Pydantic and the selected model-provider integration.
+- [ ] Create the Cargo workspace and pin Rust dependencies/toolchain.
+- [ ] Define versioned JSON protocol between Python controller and Rust enforcement service.
 - [ ] Add a CI workflow for formatting, static checks and unit tests.
 
-**Deliverables:** repository skeleton, threat model, reproducible Python environment, CI smoke test.
+**Deliverables:** repository skeleton, threat model, reproducible Python environment, Rust Cargo workspace, CI smoke test.
 
 **Exit criteria:** clean clone can install dependencies and run an empty test suite without access to secrets or Docker daemon privileges.
 
-### Phase 1 - Policy DSL and schema validator
+### Phase 1 - Policy DSL and Rust schema validator
 
 **Goal:** Build the canonical representation of what a task may do.
 
@@ -131,7 +132,7 @@ Tasks:
 - [ ] Normalize filesystem paths and reject traversal, empty roots and invalid path overlap.
 - [ ] Validate command/tool identifiers and syscall profile names against registered catalogs.
 - [ ] Validate network policy and numeric resource ceilings.
-- [ ] Implement policy templates for Python coding, C compilation and test execution.
+- [ ] Implement policy templates for Python, Rust/C compilation and test execution workloads. The policy validator and ratchet authority are Rust; Python controller validation is defense in depth.
 - [ ] Add a CLI command to validate and print a normalized policy without executing anything.
 - [ ] Add tests for malformed JSON, unknown keys, wrong types, negative limits, unsupported rights, path traversal, symlink edge cases and policy hash stability.
 
@@ -282,14 +283,18 @@ Tasks:
 
 Tasks:
 
-- [ ] Define a planner adapter interface returning structured actions.
-- [ ] Implement a deterministic mock planner for test scenarios.
-- [ ] Implement tool broker methods: list/read/write/apply_patch/run_command/run_tests/request_permission.
-- [ ] Route every proposed action through intent/risk checks and the latest policy/ratchet state.
+- [ ] Implement a custom **LangGraph `StateGraph`** with typed state and explicit nodes: `intake`, `context_loader`, `planner`, `plan_validator`, `action_normalizer`, `policy_decision`, `approval_interrupt`, `worker_dispatch`, `result_collector`, `completion_check` and `finalize`.
+- [ ] Implement the planner node with **LangChain** chat-model/provider adapters and Pydantic structured output (for example, a typed `ActionProposal` / `ActionPlan` schema). Treat every model response as untrusted input.
+- [ ] Define narrow LangChain tool schemas for task-scoped proposals such as `read_workspace_file`, `propose_patch`, `run_approved_test` and `request_permission`. Tools must not directly invoke host shell, Docker, policy mutation or unrestricted filesystem/network access.
+- [ ] Implement a deterministic mock planner for test scenarios so security and baseline runs do not require an API key or nondeterministic model behavior.
+- [ ] Implement the LangGraph conditional routes: valid proposal -> Rust policy decision; Rust `ALLOW` -> worker dispatch; `DENY` -> bounded replan or terminate; `APPROVAL_REQUIRED` -> trusted human interrupt; completion -> finalize.
+- [ ] Make the policy-decision node call the Rust authority and revalidate the latest policy hash, epoch and action immediately before dispatch. LangGraph routing and LangChain tools must never override the Rust decision.
+- [ ] Implement tool broker methods: bounded list/read/write/apply_patch/run_command/run_tests/request_permission operations, each backed by the trusted controller and Rust authorization.
 - [ ] Ensure command arguments are arrays and shell execution is disabled by default.
-- [ ] Limit planner context and tool outputs to the task workspace.
+- [ ] Limit planner context and tool outputs to the task workspace; return bounded excerpts rather than whole repositories or large command logs.
 - [ ] Add retry logic for safe, recoverable failures without relaxing policy.
-- [ ] Add optional LLM provider adapter only after deterministic tests pass.
+- [ ] Add the selected live LLM provider through LangChain only after deterministic mock-based enforcement and graph-routing tests pass.
+- [ ] Use a local checkpointer for tests and approval/resume flows when persistence is enabled; persist only minimal, redacted graph state. Keep hosted LangSmith tracing disabled by default pending privacy review.
 - [ ] Never let the LLM directly alter policy state, Docker settings or host paths.
 
 **Deliverables:** agent loop, tool broker, mock planner, optional provider interface and end-to-end tests.

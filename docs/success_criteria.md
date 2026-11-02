@@ -209,3 +209,17 @@ A release candidate is accepted only when:
 - All failures, unsupported cases and target misses are clearly documented.
 
 If one or more criteria are not met, mark the release as **prototype-incomplete** or **partially validated** and state exactly which conditions failed. Do not claim that the framework is secure in general or that it eliminates prompt injection.
+
+
+## Additional acceptance criteria: adopted technology stack
+
+| ID | Criterion | Pass condition | Evidence |
+|---|---|---|---|
+| STACK-001 | Language separation | Python owns agent orchestration/evaluation; Rust owns authoritative policy, ratchet, native launcher and process supervision | Architecture review and repository layout |
+| STACK-002 | LangChain integration | Model adapter, structured planner output and narrow tool schemas work with a mock provider | Automated integration test |
+| STACK-003 | LangGraph control flow | Required graph nodes and conditional routes are implemented and observable | Graph inspection and workflow tests |
+| STACK-004 | No agent bypass | No LLM tool can directly invoke host shell, Docker daemon, mutate policy state or access unrestricted host paths | Tool registry audit and adversarial test |
+| STACK-005 | Rust authority | Every execution request is independently revalidated by Rust against the current policy hash/version | Integration test and audit evidence |
+| STACK-006 | Checkpoint privacy | Persisted graph state excludes credentials and is redacted/minimized | Checkpoint inspection test |
+| STACK-007 | Optional tracing privacy | LangSmith tracing is disabled by default; enabling it requires documented privacy review and redaction | Configuration and deployment review |
+| STACK-008 | Reproducible dependencies | Python and Rust dependencies/toolchains are pinned and recorded in run metadata | Lockfiles and run manifest |

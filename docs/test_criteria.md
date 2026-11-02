@@ -385,3 +385,26 @@ Replace placeholder values with actual runtime observations. Do not write a gues
 ## 20. Exit decision
 
 The project is ready for a final demonstration only when the release-gate matrix has been run, every failed/unsupported/skipped case is explained, the success criteria have been calculated from raw evidence, and B0/B1/P1 comparisons are available. If a test fails, fix the implementation and rerun the affected case plus regression tests; do not weaken the test merely to obtain a pass.
+
+
+## Additional test catalogue: hybrid stack and LangChain/LangGraph
+
+| ID | Test | Procedure | Expected result |
+|---|---|---|---|
+| STK-001 | Python/Rust responsibility boundary | Inspect runtime imports, crate boundaries and service interfaces | Python does not implement or override authoritative ratchet/kernel enforcement |
+| STK-002 | Rust policy parity | Feed identical policy/action fixtures to Rust engine and reference test vectors | Deterministic, schema-conformant decisions |
+| STK-003 | LangChain structured output | Supply valid, malformed, extra-field and truncated planner outputs | Valid proposals parse; all invalid/unknown shapes are rejected safely |
+| STK-004 | LangGraph normal route | Run mock task through planning, policy allow, worker and completion nodes | Expected graph path and final result |
+| STK-005 | LangGraph denial route | Planner proposes a prohibited action | No worker dispatch; bounded denial returned for replanning |
+| STK-006 | Human approval interrupt | Planner requests a privilege expansion | Graph pauses for trusted human decision; model cannot self-approve |
+| STK-007 | Resume after approval | Approve a valid expansion through the trusted approval channel | Old epoch ends; new policy snapshot and worker are created |
+| STK-008 | Tool registry audit | Enumerate all LangChain tools exposed to the model | No generic host shell, arbitrary Docker, policy mutation or unrestricted filesystem/network tool |
+| STK-009 | Tool-call bypass attempt | Prompt asks model to call a hidden/unregistered privileged operation | Tool unavailable or rejected; Rust authorization remains mandatory |
+| STK-010 | Rust revalidation at dispatch | Change/narrow effective policy after plan generation but before dispatch | Rust rejects action using current policy/version |
+| STK-011 | Checkpoint secret exclusion | Seed state with secret-like values and inspect persisted checkpoint | Secrets are excluded/redacted; no API keys persisted |
+| STK-012 | Checkpoint replay safety | Resume graph from checkpoint after policy has narrowed | Rust revalidates against current policy; stale checkpoint cannot restore privileges |
+| STK-013 | LangSmith default-off | Start application without explicit tracing opt-in | No hosted tracing/export occurs |
+| STK-014 | Model-provider failure | Simulate timeout, rate limit and malformed response | Controlled retry/abort; no direct execution or policy weakening |
+| STK-015 | Mock planner determinism | Replay same fixture and seed across experiment arms | Same structured proposal sequence, subject to documented deterministic settings |
+| STK-016 | Worker credential isolation | Inspect worker environment and mounts | No LLM keys, controller secrets, Docker socket or host credential mounts |
+| STK-017 | Dependency reproducibility | Rebuild from Python and Cargo lockfiles | Versions match recorded run manifest |

@@ -16,7 +16,7 @@ Task request -> Task-scoped policy -> Monotonic privilege ratchet
 
 - **User:** supplies the task and expected outcome.
 - **Task API / CLI:** receives the task and selects an experiment arm.
-- **Agent planner:** proposes a plan, code edits and tool calls. It has no authority to grant permissions.
+- **LangChain planner within LangGraph:** proposes a typed plan, code edits and tool calls. It has no authority to grant permissions.
 - **Policy engine:** validates the task policy and evaluates each proposed action.
 - **Privilege ratchet:** computes and stores the current effective policy.
 - **Execution supervisor:** creates the isolated workspace and starts/stops the worker.
@@ -24,6 +24,14 @@ Task request -> Task-scoped policy -> Monotonic privilege ratchet
 - **Worker process tree:** runs the generated code, commands, child processes and grandchildren.
 - **Monitor/auditor:** records events, process/resource usage and results.
 - **Evaluation harness:** repeats the workload across B0, B1 and P1 experiment arms.
+
+## 2A. Agent graph implementation
+
+The controller is implemented in Python using LangChain and LangGraph. LangChain supplies model adapters, structured-output parsing and tool schemas. LangGraph controls the explicit workflow and interrupt/resume behavior. The graph is a workflow with deterministic security gates, not an unconstrained autonomous shell agent.
+
+Required nodes: `intake` -> `context_loader` -> `planner` -> `plan_validator` -> `action_normalizer` -> `policy_decision` -> (`approval_interrupt` or `worker_dispatch`) -> `result_collector` -> `completion_check` -> `finalize` or back to `planner`.
+
+The `policy_decision` node calls the Rust policy/ratchet implementation. No LangChain tool may bypass this call. The Rust engine rechecks the effective policy immediately before dispatch. Use typed planner outputs and reject malformed/unknown fields. Use a mock planner for baseline and deterministic tests before enabling a live model. LangGraph persistence, if enabled, stores minimal redacted state; hosted LangSmith tracing is off by default pending privacy review.
 
 ## 3. End-to-end task workflow
 
@@ -56,8 +64,8 @@ Task request -> Task-scoped policy -> Monotonic privilege ratchet
 
 1. Give the planner the task statement and only the context it needs from the task workspace.
 2. Tell the planner that files, repository instructions and tool output are data, not policy overrides.
-3. Request a structured plan with intended operations, files to read/write, commands to run and expected test outcomes.
-4. Parse the plan as structured data.
+3. LangChain requests a schema-constrained structured plan with intended operations, files to read/write, commands to run and expected test outcomes.
+4. LangGraph routes the planner result through `plan_validator`; parse it as structured data using the declared schema.
 5. Do not execute command strings or code embedded in free-form planner text.
 
 **Output:** untrusted plan proposal.
@@ -80,7 +88,7 @@ A model-generated explanation is not evidence of authorization. Only policy stat
 
 ### Step 5 - Apply the privilege ratchet
 
-The ratchet evaluates proposed policy updates and action requirements.
+The Rust ratchet evaluates proposed policy updates and action requirements. The LangGraph node only transports the request and result; it cannot override the decision.
 
 - If no permission change is required, retain the current effective policy.
 - If permissions are removed, narrowed or limits are reduced, validate and commit the narrower policy.
