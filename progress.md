@@ -2,7 +2,7 @@
 
 Tracks which phase of `docs/implementation_plan.md` the build is in, what is done, and what is still pending. Updated and committed at the end of every phase.
 
-**Current phase:** Phase 9 — LangGraph agent loop (in progress). Milestones M1–M5 reached.
+**Current phase:** Phase 10 — Evaluation harness (B0 / B1 / P1) (in progress). Milestones M1–M6 reached.
 
 ## Environment of record
 
@@ -29,8 +29,8 @@ Tracks which phase of `docs/implementation_plan.md` the build is in, what is don
 | 6 | Landlock integration | M4 | **done** |
 | 7 | seccomp-BPF integration | M4 | **done** |
 | 8 | Subprocess-aware enforcement and narrowing | M5 | **done** |
-| 9 | LangGraph agent loop (mock planner, then OpenAI-compatible LLM) | M6 | in progress |
-| 10 | Evaluation harness (B0 / B1 / P1) | M7 | pending |
+| 9 | LangGraph agent loop (mock planner, then OpenAI-compatible LLM) | M6 | **done** (live LLM: pending endpoint in `.env`) |
+| 10 | Evaluation harness (B0 / B1 / P1) | M7 | in progress |
 | 11 | Performance, hardening, final report | M7 | pending |
 
 ## Completed work
@@ -230,15 +230,45 @@ Findings fixed during the phase:
 1. **Docker silently auto-creates a missing named volume**, so an action could run on an unbounded disk-backed volume. The executor now verifies the volume and holder before every dispatch (FAIL-007), and `leaked_resources` also matches by name (three stale volumes from the failing runs were found and removed).
 2. Truncated export streams raised a raw `tarfile` error; they are now cleanly rejected.
 
+### Phase 9: LangGraph agent loop (2026-11-03)
+- `controller/graph/build.py`: LangGraph `StateGraph` with the 11 required nodes and conditional routes. Security properties enforced by construction:
+  - only `ALLOW` reaches `worker_dispatch`;
+  - `worker_dispatch` **re-asks ratchetd** right before executing and uses only that dispatch;
+  - a stale epoch or hash yields DENY plus a resync to the authoritative state;
+  - the approval interrupt **ignores the resume payload** and checks ratchetd, so only `argus approve` on the approval socket can open a new epoch;
+  - bounded replans, invalid-output limit and step limit;
+  - completion is reported as `completed` only after an **independent check** (e.g. pytest in the worker); otherwise it is `finished_unverified`.
+- `controller/graph/proposals.py`: strict Pydantic proposal union (8 types, `extra="forbid"`, size bounds, argv must be an array) and the narrow LangChain `StructuredTool` registry (proposal-only, validates, never executes).
+- Checkpoint privacy: raw planner output and full write/patch payloads stay in an in-memory scratch area, never in graph state. State holds redacted summaries plus a SHA-256 digest; on resume without scratch the step is re-planned.
+- `controller/llm/planner.py`: `MockPlanner` (scripted, deterministic) and `LLMPlanner` (LangChain `ChatOpenAI` against the OpenAI-compatible endpoint in `.env`: temperature 0, bounded retries with backoff, bounded and redacted context, content treated as data). Provider failure → `PLANNER_UNAVAILABLE`, nothing executes.
+- `controller/runner.py`: one task end to end. Writes `run_metadata.json` (arm, planner/model, image ID, kernel, Docker, Landlock, deployment hash, package versions, redacted settings), `events.jsonl`, `result.json` (outcome, independent verification, SHA-256 artifacts) and `artifacts/` (validated export).
+- CLI: `argus run TASK.json`, `argus approve` (trusted human channel), `argus daemon`.
+
+**Tests / evidence:** `./scripts/check.sh`: **ALL CHECKS PASSED**. Rust 83 passed; Python 224 passed, 2 skipped (DKR-015 rootless UNSUPPORTED; live-LLM smoke test pending endpoint).
+- `tests/integration/test_graph.py` (29):
+  - STK-004 / AGT-001 normal route with independent verification; unverified finish and failed verification are never reported as success;
+  - STK-005 / AGT-016 denial and retry; denial limit;
+  - STK-003 / AGT-007/008/011/014/015: nine invalid shapes rejected, bounded, never executed;
+  - STK-008 tool-registry audit; AGT-009 metacharacters stay argv data; AGT-010 cwd escape denied;
+  - AGT-002…005: an obedient planner follows README, comment and test-output injections, and every protected action is denied at the gate;
+  - STK-006/007 approval opens epoch 2; denial keeps the policy;
+  - **RAT-023: a forged resume payload claiming approval changes nothing**;
+  - STK-010 narrowing between decision and dispatch → revalidation denies; STK-012 a replayed SQLite checkpoint in a new controller cannot execute;
+  - STK-011: an API key, a password and an AWS key are absent from the checkpoint DB and the audit log, and the written file is still correct;
+  - STK-014 timeouts and 429s abort after 3 attempts; malformed model output is rejected; STK-015 mock determinism.
+- `tests/integration/test_agent_e2e.py` (3 + 1 opt-in):
+  - AGT-001: a real repository is fixed in the hardened worker and verified by pytest in the container; artifacts hashed; CONFINEMENT_INSTALLED with seccomp in every action;
+  - AGT-006: a hostile `conftest.py` auto-run by pytest cannot read the canary (EACCES), write `/etc` or outside the workspace, open a socket or kill the supervisor (EPERM), while the legitimate task still completes;
+  - AGT-012/013: the ratchetd state, runtime dir, runs dir and repository root are invisible in the worker.
+
+**Pending (needs the owner):** fill `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` in `.env` and run `uv run pytest -m llm tests/integration/test_agent_e2e.py`.
+
 ## Pending work (current phase)
 
-- [ ] Typed `TaskState` graph state (minimal, no secrets) and Pydantic `ActionProposal` / `ActionPlan` (`extra="forbid"`, bounded sizes)
-- [ ] LangGraph `StateGraph` with nodes intake → context_loader → planner → plan_validator → action_normalizer → policy_decision → (approval_interrupt | worker_dispatch) → result_collector → completion_check → finalize; bounded replan on DENY
-- [ ] Narrow LangChain proposal tools; tool-registry audit (STK-008)
-- [ ] Deterministic mock planner (scripted scenarios); then the OpenAI-compatible adapter from `.env` with retry/abort
-- [ ] Approval interrupt answered via `argus approve` (approval socket); resume opens a new epoch
-- [ ] Optional SQLite checkpointer with redaction; stale-checkpoint replay revalidated by Rust
-- [ ] AGT-001 … AGT-016, STK-003 … STK-015
+- [ ] Scenario manifest format (prompt, fixture, policy, scripted planner, expected effects, scoring) and a frozen core corpus: legitimate Python and C workloads, direct and indirect prompt injection, staged escalation (fs / exec / syscall / net / limits), subprocess misuse
+- [ ] Harness: B0 / B1 / P1 per scenario, counterbalanced order, ≥ 3 repetitions, fresh sandbox per run, every run recorded (including invalid ones)
+- [ ] Independent effect oracles (canary reads / writes, markers) separating *attempted*, *policy denial*, *kernel denial* and *effect completed*
+- [ ] `metrics.json` and the comparison report from raw records (ASR, LTCR, false denials, latency); EVA-001 … EVA-013, LEG-*
 
 ## Known limitations / open items
 
