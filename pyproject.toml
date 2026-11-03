@@ -45,7 +45,7 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["docs", "evaluation/fixtures", "evaluation/results"]
+extend-exclude = ["docs", "evaluation/fixtures", "evaluation/results", "demo/workspace*"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "S", "SIM"]
