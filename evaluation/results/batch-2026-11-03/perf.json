@@ -1,0 +1,565 @@
+{
+  "n": 30,
+  "image_id": "sha256:0d6f9a8c3ecc5234da9733c3d63af084c9904c8557bc0c84af9b91431924ec54",
+  "PERF-001": {
+    "what": "docker run --rm of the hardened worker (--version), ms",
+    "n": 30,
+    "median": 222.61,
+    "p95": 238.3,
+    "raw": [
+      222.24,
+      238.26,
+      237.05,
+      212.9,
+      229.99,
+      215.0,
+      218.94,
+      222.98,
+      229.24,
+      225.31,
+      232.41,
+      217.12,
+      225.31,
+      226.16,
+      213.48,
+      239.36,
+      209.56,
+      217.27,
+      216.64,
+      217.33,
+      223.68,
+      224.55,
+      220.34,
+      216.79,
+      223.34,
+      223.89,
+      207.3,
+      201.9,
+      218.03,
+      224.47
+    ]
+  },
+  "PERF-002/003": {
+    "what": "in-child install time (\u00b5s) measured inside the worker",
+    "python-build-v1": {
+      "bench_version": "1.0",
+      "landlock_handled_abi": 9,
+      "landlock_install": {
+        "max_us": 297.438,
+        "median_us": 159.994,
+        "min_us": 68.647,
+        "n": 50,
+        "p95_us": 219.34
+      },
+      "plan_us": 39.975,
+      "profile": "python-build-v1",
+      "seccomp_install": {
+        "max_us": 1150.48,
+        "median_us": 751.288,
+        "min_us": 389.269,
+        "n": 50,
+        "p95_us": 990.197
+      },
+      "spawn_confined": {
+        "max_us": 8154.999,
+        "median_us": 7390.0199999999995,
+        "min_us": 6303.798,
+        "n": 50,
+        "p95_us": 8027.786999999999
+      },
+      "spawn_unconfined": {
+        "max_us": 6924.331,
+        "median_us": 6551.691,
+        "min_us": 5564.974999999999,
+        "n": 50,
+        "p95_us": 6840.148
+      }
+    },
+    "python-strict-v1": {
+      "bench_version": "1.0",
+      "landlock_handled_abi": 9,
+      "landlock_install": {
+        "max_us": 264.409,
+        "median_us": 171.389,
+        "min_us": 128.876,
+        "n": 50,
+        "p95_us": 232.119
+      },
+      "plan_us": 76.29899999999999,
+      "profile": "python-strict-v1",
+      "seccomp_install": {
+        "max_us": 1570.89,
+        "median_us": 1206.789,
+        "min_us": 825.861,
+        "n": 50,
+        "p95_us": 1433.841
+      },
+      "spawn_confined": {
+        "max_us": 8505.61,
+        "median_us": 7973.223999999999,
+        "min_us": 7170.736,
+        "n": 50,
+        "p95_us": 8341.173
+      },
+      "spawn_unconfined": {
+        "max_us": 6979.044,
+        "median_us": 6529.883,
+        "min_us": 5809.423,
+        "n": 50,
+        "p95_us": 6816.19
+      }
+    }
+  },
+  "PERF-004": {
+    "what": "no-op command (/usr/bin/true)",
+    "B0": {
+      "in_worker_ms": {
+        "n": 30,
+        "median": 6.0,
+        "p95": 6.0,
+        "raw": [
+          6.0,
+          5.0,
+          6.0,
+          6.0,
+          5.0,
+          5.0,
+          5.0,
+          5.0,
+          6.0,
+          6.0,
+          5.0,
+          1.0,
+          5.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          5.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          5.0,
+          6.0,
+          6.0,
+          5.0,
+          5.0,
+          6.0,
+          6.0
+        ]
+      },
+      "per_action_container_ms": {
+        "n": 30,
+        "median": 329.84,
+        "p95": 342.3,
+        "raw": [
+          340.03,
+          312.55,
+          325.59,
+          320.13,
+          308.63,
+          346.95,
+          322.26,
+          282.72,
+          338.7,
+          342.34,
+          335.07,
+          316.68,
+          327.96,
+          334.96,
+          327.37,
+          341.28,
+          334.26,
+          301.67,
+          316.49,
+          321.03,
+          332.2,
+          335.9,
+          329.87,
+          335.96,
+          337.72,
+          328.06,
+          319.8,
+          332.9,
+          329.8,
+          339.54
+        ]
+      }
+    },
+    "B1": {
+      "in_worker_ms": {
+        "n": 30,
+        "median": 6.0,
+        "p95": 6.0,
+        "raw": [
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          7.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0
+        ]
+      },
+      "per_action_container_ms": {
+        "n": 30,
+        "median": 337.49,
+        "p95": 372.3,
+        "raw": [
+          337.25,
+          334.51,
+          320.22,
+          315.41,
+          337.49,
+          334.83,
+          323.97,
+          323.04,
+          334.2,
+          334.9,
+          318.33,
+          337.15,
+          350.92,
+          333.31,
+          338.13,
+          328.89,
+          360.66,
+          347.71,
+          339.92,
+          344.58,
+          334.38,
+          339.33,
+          337.49,
+          358.32,
+          372.34,
+          371.69,
+          341.96,
+          341.38,
+          375.55,
+          340.6
+        ]
+      }
+    },
+    "P1": {
+      "in_worker_ms": {
+        "n": 30,
+        "median": 6.0,
+        "p95": 7.0,
+        "raw": [
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          7.0,
+          6.0,
+          6.0,
+          6.0,
+          1.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0,
+          7.0,
+          6.0,
+          6.0,
+          6.0,
+          7.0,
+          6.0,
+          6.0,
+          6.0,
+          6.0
+        ]
+      },
+      "per_action_container_ms": {
+        "n": 30,
+        "median": 343.21,
+        "p95": 364.1,
+        "raw": [
+          358.51,
+          327.64,
+          353.21,
+          321.41,
+          349.53,
+          347.33,
+          362.36,
+          364.94,
+          352.16,
+          343.93,
+          341.42,
+          352.48,
+          344.14,
+          352.46,
+          364.1,
+          356.39,
+          336.43,
+          320.16,
+          321.52,
+          316.29,
+          337.35,
+          329.74,
+          347.97,
+          309.14,
+          335.98,
+          340.86,
+          349.48,
+          327.97,
+          342.49,
+          318.8
+        ]
+      }
+    }
+  },
+  "PERF-007": {
+    "what": "11-process task (parent + 10 children)",
+    "B0": {
+      "status": "completed",
+      "in_worker_ms": 373,
+      "observed_processes": 11,
+      "peak_process_count_cgroup": 14,
+      "pid_limit": 36
+    },
+    "B1": {
+      "status": "completed",
+      "in_worker_ms": 374,
+      "observed_processes": 11,
+      "peak_process_count_cgroup": 14,
+      "pid_limit": 36
+    },
+    "P1": {
+      "status": "completed",
+      "in_worker_ms": 346,
+      "observed_processes": 11,
+      "peak_process_count_cgroup": 14,
+      "pid_limit": 36
+    }
+  },
+  "PERF-008": {
+    "what": "list_files over 3,030 entries (P1)",
+    "status": "completed",
+    "entries_returned": 2000,
+    "truncated": true,
+    "result_bytes": 109340,
+    "wall_ms": 367.4,
+    "in_worker_ms": 11,
+    "peak_memory_bytes": 5201920
+  },
+  "PERF-010": {
+    "what": "4 concurrent P1 tasks",
+    "total_ms": 998.8,
+    "per_task": {
+      "t3": {
+        "ms": 954.8,
+        "sees": [
+          "mine.txt"
+        ]
+      },
+      "t0": {
+        "ms": 961.6,
+        "sees": [
+          "mine.txt"
+        ]
+      },
+      "t2": {
+        "ms": 995.3,
+        "sees": [
+          "mine.txt"
+        ]
+      },
+      "t1": {
+        "ms": 998.0,
+        "sees": [
+          "mine.txt"
+        ]
+      }
+    },
+    "isolated": true
+  },
+  "PERF-005": {
+    "scenario": "LEG-PY-FIX",
+    "B0": {
+      "end_to_end_ms": {
+        "n": 3,
+        "median": 2000.3,
+        "p95": 2102.4,
+        "raw": [
+          2102.4,
+          2000.3,
+          1951.7
+        ]
+      },
+      "worker_ms_total": {
+        "n": 3,
+        "median": 190.0,
+        "p95": 194.0,
+        "raw": [
+          186.0,
+          194.0,
+          190.0
+        ]
+      },
+      "peak_memory_bytes_median": 31047680
+    },
+    "B1": {
+      "end_to_end_ms": {
+        "n": 3,
+        "median": 2010.1,
+        "p95": 2130.1,
+        "raw": [
+          2010.1,
+          1642.9,
+          2130.1
+        ]
+      },
+      "worker_ms_total": {
+        "n": 3,
+        "median": 189.0,
+        "p95": 298.0,
+        "raw": [
+          189.0,
+          188.0,
+          298.0
+        ]
+      },
+      "peak_memory_bytes_median": 30670848
+    },
+    "P1": {
+      "end_to_end_ms": {
+        "n": 3,
+        "median": 2007.8,
+        "p95": 2028.6,
+        "raw": [
+          2028.6,
+          2007.8,
+          1966.4
+        ]
+      },
+      "worker_ms_total": {
+        "n": 3,
+        "median": 191.0,
+        "p95": 193.0,
+        "raw": [
+          185.0,
+          193.0,
+          191.0
+        ]
+      },
+      "peak_memory_bytes_median": 30859264
+    }
+  },
+  "PERF-006": {
+    "scenario": "LEG-C-MAKE",
+    "B0": {
+      "end_to_end_ms": {
+        "n": 3,
+        "median": 2196.3,
+        "p95": 2234.6,
+        "raw": [
+          2187.3,
+          2196.3,
+          2234.6
+        ]
+      },
+      "worker_ms_total": {
+        "n": 3,
+        "median": 65.0,
+        "p95": 69.0,
+        "raw": [
+          69.0,
+          65.0,
+          63.0
+        ]
+      },
+      "peak_memory_bytes_median": 24113152
+    },
+    "B1": {
+      "end_to_end_ms": {
+        "n": 3,
+        "median": 2182.3,
+        "p95": 2209.3,
+        "raw": [
+          2182.3,
+          2209.3,
+          2116.0
+        ]
+      },
+      "worker_ms_total": {
+        "n": 3,
+        "median": 60.0,
+        "p95": 67.0,
+        "raw": [
+          55.0,
+          60.0,
+          67.0
+        ]
+      },
+      "peak_memory_bytes_median": 24178688
+    },
+    "P1": {
+      "end_to_end_ms": {
+        "n": 3,
+        "median": 2223.0,
+        "p95": 2236.6,
+        "raw": [
+          2208.2,
+          2223.0,
+          2236.6
+        ]
+      },
+      "worker_ms_total": {
+        "n": 3,
+        "median": 71.0,
+        "p95": 72.0,
+        "raw": [
+          66.0,
+          72.0,
+          71.0
+        ]
+      },
+      "peak_memory_bytes_median": 24109056
+    }
+  },
+  "PERF-009": {
+    "what": "repeated tasks over the whole batch",
+    "runs": 153,
+    "scored": 153,
+    "sum_run_seconds": 392.5,
+    "runs_per_minute": 23.39,
+    "leaked_after_batch": {
+      "containers": [],
+      "volumes": []
+    },
+    "run_dirs": 153
+  }
+}

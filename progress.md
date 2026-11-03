@@ -2,7 +2,7 @@
 
 Tracks which phase of `docs/implementation_plan.md` the build is in, what is done, and what is still pending. Updated and committed at the end of every phase.
 
-**Current phase:** Phase 11 — Performance, hardening, final report (in progress). Milestones M1–M6 reached.
+**Current phase:** all phases (0–11) complete — **release candidate, validated on the declared environment**. Milestones M1–M7 reached. See `docs/final_report.md`.
 
 ## Environment of record
 
@@ -12,7 +12,7 @@ Tracks which phase of `docs/implementation_plan.md` the build is in, what is don
 | LSMs | capability, landlock, lockdown, yama, bpf |
 | Landlock ABI (inside Docker, default seccomp) | 10 |
 | Docker | 29.9.2, rootful, cgroup v2 (systemd driver), iptables firewall backend; bridge network has no egress (build uses host network) |
-| Worker image | `argus-worker:dev`, ID recorded in `config/worker-image.lock`; bases `rust:1.99-slim@sha256:9daf2b24…`, `python:3.12-slim@sha256:b18b261e…` |
+| Worker image | `argus-worker:dev`, ID recorded in `config/worker-image.lock` (batch image and the bench-enabled perf image IDs are in `environment.json` / `perf.json`); bases `rust:1.99-slim@sha256:9daf2b24…`, `python:3.12-slim@sha256:b18b261e…` |
 | Rust | rustc / cargo 1.99.1 (Arch package, no rustup) |
 | Python | 3.12 via uv 0.13.6 (host has 3.14; not used) |
 
@@ -31,7 +31,7 @@ Tracks which phase of `docs/implementation_plan.md` the build is in, what is don
 | 8 | Subprocess-aware enforcement and narrowing | M5 | **done** |
 | 9 | LangGraph agent loop (mock planner, then OpenAI-compatible LLM) | M6 | **done** (live LLM: pending endpoint in `.env`) |
 | 10 | Evaluation harness (B0 / B1 / P1) | M7 | **done** |
-| 11 | Performance, hardening, final report | M7 | in progress |
+| 11 | Performance, hardening, final report | M7 | **done** |
 
 ## Completed work
 
@@ -291,11 +291,29 @@ Findings fixed during the phase:
 
 All ten proposed targets are met. `SUB-DAEMON-PERSIST` did not discriminate (0 effects in every arm, because supervisor cleanup is common to all arms), and the report says so.
 
-## Pending work (current phase)
+### Phase 11: Performance, hardening, final report (2026-11-03)
+- `argus-worker --bench-confinement N` (in-child Landlock and seccomp install timing) and `evaluation/perf.py` → `perf.json` / `perf.md` for PERF-001…010.
+  - Container start: median 223 ms.
+  - Landlock install: median 160 µs.
+  - seccomp install: 751 µs (denylist) / 1,207 µs (strict).
+  - No-op action: 6 ms in every arm.
+  - Python and C tasks: within noise across arms.
+  - Other checks: PID peak 14/36, listing capped at 2,000 entries, 153 runs with no leaks, 4 concurrent tasks isolated.
+  - Bench bug found and fixed: Rust socket writes use `sendto`, which the strict profile correctly denies, so timings now travel over a pipe.
+- Release-gate review over the whole batch:
+  - secret scan: 0 matches in 1,133 files;
+  - all 153 audit chains verify;
+  - every B1/P1 action ran with Landlock and seccomp installed;
+  - preflight 21/21 on the current image.
+- `docs/final_report.md`: question and answer, method, results with denominators and CIs, performance, SC-F01…F14 and STACK-001…008 status with evidence, supported environment, limitations, reproduction.
+- `docs/test_matrix.md` regenerated (224/235 catalogue IDs traced to code; 11 with a documented status). README quick start updated.
 
-- [ ] Rebuild the image with the `--bench-confinement` mode and run `evaluation.perf` (PERF-001 … 010) against the batch
-- [ ] Release-gate review: Docker flags and mounts, log secret scan over the whole batch, supported / unsupported environment
-- [ ] `docs/final_report.md`: method, results with denominators, limitations, threats to validity, success-criteria table (SC-F01…F14, STACK-001…008)
+**Release gate:** SC-F01…F14 met; STACK-001…008 met; all proposed numeric targets met on `batch-2026-11-03`; DKR-015 rootless and the LL-017 older-kernel run are UNSUPPORTED (documented).
+
+## Pending work (needs the owner)
+
+- [ ] Configure `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` in `.env`, then run `uv run pytest -m llm tests/integration/test_agent_e2e.py` and LLM-driven repetitions (≥ 10 recommended) with `PLANNER=llm`.
+- [ ] Optional: rootless Docker / Podman run (DKR-015); fixing the host firewall so bridge-network builds work without `--network host`.
 
 ## Known limitations / open items
 

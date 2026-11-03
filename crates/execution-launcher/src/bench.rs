@@ -2,14 +2,14 @@
 //!
 //! Reads a canonical policy on stdin, times `plan` once, then spawns
 //! `/usr/bin/true` N times with a pre-exec hook that installs Landlock and then
-//! seccomp, timestamping each step. Timings travel back over a socketpair
-//! that stays open during pre-exec and is closed by CLOEXEC at exec. A
+//! seccomp, timestamping each step. Timings travel back over a pipe that
+//! stays open during pre-exec and is closed by CLOEXEC at exec. (A pipe, not a
+//! socket: Rust socket writes use `sendto`, which the strict profile denies.) A
 //! baseline of N unconfined spawns is measured too.
 
 use process_supervisor::{run, RunSpec};
 use serde_json::json;
 use std::io::{Read, Write};
-use std::os::unix::net::UnixStream;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -75,7 +75,7 @@ pub fn main(n: usize) -> i32 {
         spawn_base.push(t.elapsed().as_secs_f64() * 1e6);
     }
     for _ in 0..n {
-        let (mut rx, tx) = match UnixStream::pair() {
+        let (mut rx, tx) = match std::io::pipe() {
             Ok(p) => p,
             Err(_) => return 1,
         };
