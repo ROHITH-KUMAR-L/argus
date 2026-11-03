@@ -151,11 +151,19 @@ fn direct_children() -> Vec<i32> {
 /// (pid, ppid, comm) for every process visible in /proc.
 fn proc_table() -> Vec<(i32, i32, String)> {
     let mut out = Vec::new();
-    let Ok(dir) = std::fs::read_dir("/proc") else { return out };
+    let Ok(dir) = std::fs::read_dir("/proc") else {
+        return out;
+    };
     for e in dir.flatten() {
-        let Ok(pid) = e.file_name().to_string_lossy().parse::<i32>() else { continue };
-        let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) else { continue };
-        let (Some(open), Some(close)) = (stat.find('('), stat.rfind(')')) else { continue };
+        let Ok(pid) = e.file_name().to_string_lossy().parse::<i32>() else {
+            continue;
+        };
+        let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) else {
+            continue;
+        };
+        let (Some(open), Some(close)) = (stat.find('('), stat.rfind(')')) else {
+            continue;
+        };
         let comm = stat[open + 1..close].to_string();
         let mut it = stat[close + 2..].split_whitespace();
         let _state = it.next();
