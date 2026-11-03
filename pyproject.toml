@@ -10,7 +10,6 @@ dependencies = [
     "langchain-openai>=0.2",
     "langgraph>=0.2",
     "langgraph-checkpoint-sqlite>=2",
-    "docker>=7.1",
     "python-dotenv>=1.0",
     "jsonschema>=4.23",
 ]
@@ -53,8 +52,12 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "SIM"]
 ignore = ["S101"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S", "B"]
+"tests/**" = ["S", "B", "E501"]
 "evaluation/**" = ["S603", "S607"]
+# "/tmp" here names the worker container's tmpfs mount, not host temp files;
+# the docker CLI is resolved from PATH by design.
+"controller/docker_client.py" = ["S108", "S607"]
+"controller/preflight.py" = ["S108"]
 
 [tool.mypy]
 python_version = "3.12"

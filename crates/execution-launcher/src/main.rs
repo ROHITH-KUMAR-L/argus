@@ -3,6 +3,7 @@
 //! ```text
 //! argus-worker              read one WorkerRequest (JSON) on stdin, print a WorkerResult
 //! argus-worker --file-op    internal: perform one file Operation (already confined)
+//! argus-worker --preflight  report effective security state as JSON
 //! argus-worker --version
 //! ```
 //!
@@ -13,6 +14,7 @@
 
 mod fileops;
 mod patch;
+mod preflight;
 mod request;
 
 use policy_model::{Confinement, Operation, Policy};
@@ -177,6 +179,10 @@ fn main() {
     let arg = std::env::args().nth(1);
     match arg.as_deref() {
         Some("--file-op") => std::process::exit(file_op_mode()),
+        Some("--preflight") => {
+            println!("{}", preflight::report());
+            return;
+        }
         Some("--version") => {
             println!("argus-worker {}", env!("CARGO_PKG_VERSION"));
             return;

@@ -269,6 +269,8 @@ Notes for the implementation agent:
 
 ### 7.3 Docker Compose development template
 
+> **Implementation note (2026-11-03):** the controller does not use Compose. `controller/docker_client.py` applies the equivalent flags to one container per action, with a tmpfs-backed task volume in place of the `/workspace` tmpfs below (see `STACK_DECISION.md` D7, D8 and D10). The template is kept for manual smoke tests.
+
 This template is for local worker smoke tests. The trusted controller should use equivalent Docker API settings to create an ephemeral worker per action. `network_mode: none` is deliberate; the worker does not call an external LLM. The controller handles planner/network traffic outside the worker.
 
 ```yaml

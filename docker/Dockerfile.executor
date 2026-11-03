@@ -1,0 +1,41 @@
+# Argus disposable worker image.
+# Both stages are pinned by digest (DKR-014). The built image ID is recorded in
+# config/worker-image.lock by scripts/build_worker_image.sh and in every run's metadata.
+
+# ---- Stage 1: trusted Rust worker entrypoint ---------------------------------
+FROM rust:1.99-slim@sha256:9daf2b244ccc30523e55cafe32edf8465671ba567d0101620e5612ccb76ea1a7 AS rust-builder
+WORKDIR /build
+# Context is assembled by scripts/build_worker_image.sh: sources + vendored crates.
+COPY Cargo.toml Cargo.lock ./
+COPY .cargo/ ./.cargo/
+COPY vendor/ ./vendor/
+COPY crates/ ./crates/
+RUN cargo build --release --locked --offline -p execution-launcher --bin argus-worker
+
+# ---- Stage 2: runtime --------------------------------------------------------
+# Python and gcc are *untrusted workload runtimes* (D3: Python + C), not part of
+# the enforcement implementation. seccomp BPF is compiled by the pure-Rust
+# `seccompiler` crate, so no libseccomp is installed.
+FROM python:3.12-slim@sha256:b18b261e1b4974b4f321451ad5251ded85abb22c2b8b262da527dda1d031ab30
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gcc libc6-dev make \
+    && rm -rf /var/lib/apt/lists/*
+
+# Test runner for the python-pytest target, then remove pip from the image.
+RUN pip install --no-cache-dir --retries 10 --timeout 60 pytest==8.3.5 \
+    && python -m pip uninstall -y pip \
+    && rm -rf /root/.cache
+
+RUN groupadd --gid 10001 worker \
+    && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /workspace/task \
+       --shell /usr/sbin/nologin worker \
+    && mkdir -p /workspace/task \
+    && chown 10001:10001 /workspace/task
+
+COPY --from=rust-builder /build/target/release/argus-worker /usr/local/bin/argus-worker
+RUN chown root:root /usr/local/bin/argus-worker && chmod 0755 /usr/local/bin/argus-worker
+
+USER 10001:10001
+WORKDIR /workspace/task
+ENTRYPOINT ["/usr/local/bin/argus-worker"]

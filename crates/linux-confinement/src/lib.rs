@@ -9,6 +9,10 @@
 //! **Phase 4 status:** not implemented. Both functions fail closed, so no
 //! `confinement: kernel` request can run until Phases 6–7 land.
 
+mod sys;
+
+pub use sys::landlock_abi;
+
 use policy_model::Policy;
 use serde::Serialize;
 

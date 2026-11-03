@@ -2,7 +2,7 @@
 
 Tracks which phase of `docs/implementation_plan.md` the build is in, what is done, and what is still pending. Updated and committed at the end of every phase.
 
-**Current phase:** Phase 5 — Docker worker image and outer sandbox (in progress). Milestones M1 and M2 reached.
+**Current phase:** Phase 6 — Landlock integration (in progress). Milestones M1, M2 and M3 reached.
 
 ## Environment of record
 
@@ -11,7 +11,8 @@ Tracks which phase of `docs/implementation_plan.md` the build is in, what is don
 | Host kernel | 7.2.9-2-cachyos, x86_64 |
 | LSMs | capability, landlock, lockdown, yama, bpf |
 | Landlock ABI (inside Docker, default seccomp) | 10 |
-| Docker | 29.9.2, rootful, cgroup v2 (systemd driver) |
+| Docker | 29.9.2, rootful, cgroup v2 (systemd driver), iptables firewall backend; bridge network has no egress (build uses host network) |
+| Worker image | `argus-worker:dev`, ID recorded in `config/worker-image.lock`; bases `rust:1.99-slim@sha256:9daf2b24…`, `python:3.12-slim@sha256:b18b261e…` |
 | Rust | rustc / cargo 1.99.1 (Arch package, no rustup) |
 | Python | 3.12 via uv 0.13.6 (host has 3.14; not used) |
 
@@ -24,8 +25,8 @@ Tracks which phase of `docs/implementation_plan.md` the build is in, what is don
 | 2 | Permission model and monotonic ratchet (`ratchetd`) | M1 | **done** |
 | 3 | Structured audit and task state | M2 | **done** |
 | 4 | Execution supervisor and process lifecycle | M2 | **done** |
-| 5 | Docker worker image and outer sandbox | M3 | in progress |
-| 6 | Landlock integration | M4 | pending |
+| 5 | Docker worker image and outer sandbox | M3 | **done** |
+| 6 | Landlock integration | M4 | in progress |
 | 7 | seccomp-BPF integration | M4 | pending |
 | 8 | Subprocess-aware enforcement and narrowing | M5 | pending |
 | 9 | LangGraph agent loop (mock planner, then OpenAI-compatible LLM) | M6 | pending |
@@ -126,13 +127,37 @@ Remaining AUD cases (005 kernel install, 006 process events, 007 resource events
 
 **Caveat (carried into Phase 5):** process-tree termination has been demonstrated on the host with benign processes only. The exit criterion "in test containers", hostile resource cases (fork bomb, memory) and cancellation by container kill are the first Phase 5 items.
 
+### Phase 5: Docker worker image and outer sandbox (2026-11-03)
+- `docker/Dockerfile.executor`: multi-stage, both bases pinned by digest; offline Rust build from vendored crates; runtime is Python 3.12 + gcc/make + pytest, with pip removed; `argus-worker` root-owned `0755` entrypoint; UID/GID 10001.
+- `scripts/build_worker_image.sh`: clean vendored context, records the image ID in `config/worker-image.lock` (git-ignored, host-specific).
+- `controller/docker_client.py`:
+  - hard-coded worker flags: `--user 10001`, `--read-only`, `--network none`, `--cap-drop ALL`, `no-new-privileges`, `--ipc private`, pids / memory (= swap) / cpu caps, core and nofile ulimits, noexec tmpfs `/tmp`, task volume only;
+  - `check_config` validates `docker inspect` before every start;
+  - `TaskSandbox`: size-capped tmpfs volume plus holder container, stage and export via `docker cp`;
+  - `DockerExecutor`: one container per dispatch, request on stdin, deadline kill, always removed;
+  - `DockerUnavailable` means no fallback; `leaked_resources` check.
+- `controller/preflight.py` and `argus preflight`: runs the pinned image under the exact worker hardening with `--preflight`. Verified on this host: **21/21 checks pass**.
+- `argus-worker --preflight`: in-container self-report (ids, capabilities, NoNewPrivs, seccomp mode, Landlock ABI, write probes, network interfaces, docker socket, host paths, mounts, env names, cgroup limits, rlimits).
+
+**Tests / evidence:** `uv run pytest`: 150 passed, 1 skipped. Docker suite: 17 passed, 1 skipped.
+- DKR-001…005 and 007…012 from inside the worker and via inspect; DKR-013 no leaks after repeated runs; DKR-014 image-ID mismatch refused; DKR-016 Docker unavailable, no fallback and preflight fails; DKR-017 five removed hardening flags each refused before start (proved by no side effect), plus `check_config` and `evaluate` unit tests for each weakening.
+- **DKR-015 rootless: UNSUPPORTED** (host daemon is rootful).
+- STK-016 (controller canary env var absent in worker).
+- In-container: RES-002 memory, RES-003 fork bomb (bounded at ≤16 by the PID limit, survivors killed), RES-006 scratch fill (ENOSPC at the 16 MiB cap), RES-007 timeout with `setsid` children, RES-008 output flood, RES-010 leak check, RES-012 cancellation mid-run is not reported as success.
+- Phase 4 carry-over: tree kill and daemons in a container. B1/P1 dispatches fail closed in a real container with no side effect.
+- `cargo test`: 78 passed; clippy, ruff, mypy clean.
+
+Findings fixed during the phase:
+1. A plain named volume had no size cap, so a task could fill the host disk. Fixed with the tmpfs volume and holder (D8 revised).
+2. The build failed on crate-download stalls. Fixed by vendoring (D10).
+3. The bridge network has no egress on this host. The build uses host networking; runtime is unaffected.
+4. The build script's exit status was masked by a pipe; builds are now checked explicitly.
+
 ## Pending work (current phase)
 
-- [ ] Retry the `rust:1.99-slim` pull; multi-stage `docker/Dockerfile.executor` pinned by digest; `argus-worker` root-owned `0755` entrypoint, UID 10001
-- [ ] `controller/docker_client.py`: hard-coded hardened run config (cap_drop ALL, no-new-privileges, read-only root, network none, pids/mem/cpu/ulimits, tmpfs `/tmp`, named task volume only)
-- [ ] `DockerExecutor`: per-action container, request on stdin, deadline kill, removal; volume staging/export via the archive API
-- [ ] `argus preflight` (code_execution_agent.md §13) and run metadata (image digest, effective security config from `docker inspect`)
-- [ ] DKR-001 … DKR-017, STK-016; Phase 4 container re-run (tree kill, fork bomb, memory, cancellation)
+- [ ] `linux-confinement::landlock`: ABI probe, ABI-aware handled mask, policy → rules (read-only → read + execute, read-write → full set), rule roots opened without following symlinks, `RestrictionStatus` must be fully enforced, otherwise fail closed
+- [ ] Wire `plan` / `install` into `argus-worker` for B1/P1; record ABI and rights in the result (AUD-005)
+- [ ] Canary files outside the workspace in the image; LL-001 … LL-022 in containers (symlinks, rename/link, truncate, traversal, subprocess inheritance)
 
 ## Known limitations / open items
 
