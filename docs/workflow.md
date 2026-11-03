@@ -232,7 +232,6 @@ stateDiagram-v2
     REJECTED --> [*]
 ```
 
-Implementation note: rename the `RATCHETED` state to `RATCHETED` in code; the diagram label is intentionally easy to spot during initial transcription and should be corrected before release.
 
 ## 5. Baseline and proposed-system workflows
 

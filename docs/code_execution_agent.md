@@ -108,19 +108,18 @@ crates/
 
 ### 4.2 Worker modules
 
+**Decision (2026-11-03): the worker entrypoint is a single Rust binary, `argus-worker`** (crate `crates/execution-launcher`). The worker contains no Python adapter; Python is present in the image only as an untrusted workload runtime.
+
 ```text
-worker/
-├── __main__.py              # reads one validated worker request
-├── request_schema.py        # worker-side defensive validation
-├── command_runner.py        # argv execution, timeout and output bounds
-├── limits.py                # rlimits and worker resource configuration
-├── policy_to_launcher.py    # maps validated policy to launcher arguments
-├── audit_events.py          # worker events only; not the trusted audit source
-└── native/
-    └── launcher/            # Rust binary/crate; applies Landlock/seccomp then execs command
+crates/execution-launcher/src/
+├── main.rs                  # argus-worker: read one bounded JSON request from stdin
+├── request.rs               # worker-side defensive validation (protocol crate types)
+├── confine.rs               # policy -> rlimits, no_new_privs, seccomp, Landlock (linux-confinement)
+├── run.rs                   # fork, confine the child, execve argv; parent supervises (process-supervisor)
+└── result.rs                # bounded stdout/stderr, rusage, confinement report -> JSON on stdout
 ```
 
-Worker-side validation is defense in depth; the controller remains responsible for the authoritative policy/ratchet decision.
+Worker-side validation is defense in depth; `ratchetd` remains responsible for the authoritative policy/ratchet decision.
 
 ## 4.3 LangChain and LangGraph agent contract
 
@@ -232,59 +231,37 @@ The trusted controller should create a fresh container for each approved action 
 
 The following is an implementation template. The build agent must adjust package names and pin the final base image by digest before using it for reported experiments. The digest must be recorded in `run_metadata.json`.
 
+The real file is `docker/Dockerfile.executor`. Its shape:
+
 ```dockerfile
-# Stage 1: compile the trusted Rust launcher. Pin both builder and final images
-# by digest for reproducible release experiments.
-FROM rust:1-slim AS rust-builder
+# Stage 1: compile the trusted Rust worker entrypoint. Pin both images by digest
+# for reported experiments.
+FROM rust:1.99-slim AS rust-builder
 WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ ./crates/
-RUN cargo build --release -p execution-launcher
+RUN cargo build --release --locked -p execution-launcher --bin argus-worker
 
-# Stage 2: minimal Python worker runtime (Python is a workload/worker adapter,
-# not the authoritative policy or kernel-enforcement implementation).
-ARG PYTHON_BASE_IMAGE=python:3.12-slim
-FROM ${PYTHON_BASE_IMAGE}
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      build-essential \
-      libseccomp2 \
-      libseccomp-dev \
+# Stage 2: runtime. Python and gcc are *untrusted workload runtimes* (D3:
+# Python + C); they are not part of the enforcement implementation.
+# seccomp is compiled to BPF by the pure-Rust `seccompiler` crate, so no
+# libseccomp is needed.
+FROM python:3.12-slim
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
     && rm -rf /var/lib/apt/lists/*
-
 RUN groupadd --gid 10001 worker \
-    && useradd --uid 10001 --gid 10001 --create-home --shell /usr/sbin/nologin worker
-
-WORKDIR /opt/ratchet-worker
-
-# Copy dependency metadata first to keep builds cacheable.
-COPY pyproject.toml ./
-COPY src/ ./src/
-# In the real Dockerfile, use a Rust builder stage to compile the launcher.
-# Example final-stage copy (adjust path/target for the selected target triple):
-COPY --from=rust-builder /build/target/release/ratchet-launcher /usr/local/bin/ratchet-launcher
-COPY worker/ ./
-
-# Install only the worker's runtime dependencies.
-RUN pip install --no-cache-dir . \
-    && chown root:root /usr/local/bin/ratchet-launcher \
-    && chmod 0755 /usr/local/bin/ratchet-launcher \
-    && chown -R root:root /opt/ratchet-worker \
-    && chmod -R go-w /opt/ratchet-worker
-
+    && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin worker
+COPY --from=rust-builder /build/target/release/argus-worker /usr/local/bin/argus-worker
+RUN chown root:root /usr/local/bin/argus-worker && chmod 0755 /usr/local/bin/argus-worker
 USER 10001:10001
 WORKDIR /workspace/task
-
-ENTRYPOINT ["python", "-m", "ratchet_worker"]
+ENTRYPOINT ["/usr/local/bin/argus-worker"]
 ```
 
 Notes for the implementation agent:
 
-- The snippet assumes a Python package layout and Makefile that will be created by the implementation plan.
+- The worker request arrives on stdin, and the result is written as JSON on stdout.
+- The workspace is a per-task named Docker volume populated through the archive API. It is never a bind mount of a host directory.
 - Do not install unnecessary shells, package managers, compilers or debugging tools in the final runtime image. Include only the tools needed by the tested workload profile.
 - Build dependencies may be placed in a multi-stage builder image and omitted from the final runtime image.
 - Build the Rust launcher in a multi-stage image build, copy only the resulting binary into the final worker image, and verify root ownership plus non-writable permissions so task code cannot replace it.

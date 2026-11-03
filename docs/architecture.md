@@ -413,6 +413,7 @@ All arms must receive equivalent task prompts, repository snapshots, model confi
 5. An explicit privilege step-up begins a new execution epoch; in-epoch policy changes only narrow privileges.
 6. Docker image, seccomp profile, Landlock ABI and policy versions are pinned and recorded.
 7. A finite test catalogue cannot prove absence of all vulnerabilities. Results are claims about the tested configuration and workload classes only.
+8. Concrete implementation decisions D1–D9 (OpenAI-compatible planner endpoint, Rust-only worker entrypoint, Python + C runtimes, `ratchetd` UDS daemon, per-action containers, named-volume workspaces) are recorded in `STACK_DECISION.md`. The wire contract is in `protocol.md` and the threat model in `threat_model.md`.
 
 ## 16. References
 

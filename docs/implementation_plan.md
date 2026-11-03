@@ -37,7 +37,7 @@ Pin the base image by digest in reproducible experiments. Do not assume the host
 ## 3. Repository layout target
 
 ```text
-ratcheted-agent/
+argus/                             # repository root
 ├── README.md
 ├── pyproject.toml                 # Python controller/evaluation dependencies
 ├── uv.lock

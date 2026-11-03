@@ -1,0 +1,49 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/policy-model",
+    "crates/policy-validator",
+    "crates/privilege-ratchet",
+    "crates/protocol",
+    "crates/linux-confinement",
+    "crates/process-supervisor",
+    "crates/execution-launcher",
+    "crates/ratchetd",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+
+[workspace.dependencies]
+policy-model = { path = "crates/policy-model" }
+policy-validator = { path = "crates/policy-validator" }
+privilege-ratchet = { path = "crates/privilege-ratchet" }
+protocol = { path = "crates/protocol" }
+linux-confinement = { path = "crates/linux-confinement" }
+process-supervisor = { path = "crates/process-supervisor" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+hex = "0.4"
+thiserror = "2"
+libc = "0.2"
+landlock = "0.4"
+seccompiler = "0.5"
+proptest = "1"
+tempfile = "3"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1

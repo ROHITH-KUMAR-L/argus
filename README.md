@@ -1,17 +1,30 @@
 # Ratcheted, Subprocess-Aware Privilege Confinement for Code-Executing Agents
 
-This folder contains the project build specification for the RVCE 2026-27 project. It is intended to be used as the source of truth by the implementation team and by an AI coding agent working on the repository.
+This repository (**Argus**) contains the build specification and the implementation for the RVCE 2026-27 project. The specification in `docs/` is the source of truth for both the implementation team and any AI coding agent working on the repository. Build status is tracked in **[progress.md](progress.md)**.
+
+> **Safety:** adversarial fixtures run only inside disposable, hardened Docker workers. Never run them on a developer host.
+
+## Quick start (development)
+
+```bash
+cp .env.example .env          # controller-only settings; PLANNER=mock by default
+uv sync                       # Python 3.12 controller + evaluation deps
+uv run pytest                 # Python unit tests
+cargo test                    # Rust policy/ratchet/confinement crates
+```
+
+Supporting documents: [protocol.md](docs/protocol.md) is the controller ↔ `ratchetd` wire contract, and [threat_model.md](docs/threat_model.md) is the threat model.
 
 ## Documents and recommended reading order
 
-Read **[STACK_DECISION.md](STACK_DECISION.md)** first for the chosen language/framework split. **[STACK_MIGRATION_PROMPT.md](STACK_MIGRATION_PROMPT.md)** is the reusable instruction for applying the same decision to another working copy or asking a coding agent to re-check stack consistency.
+Read **[STACK_DECISION.md](docs/STACK_DECISION.md)** first for the chosen language/framework split. **[STACK_MIGRATION_PROMPT.md](docs/STACK_MIGRATION_PROMPT.md)** is the reusable instruction for applying the same decision to another working copy or asking a coding agent to re-check stack consistency.
 
-1. **[architecture.md](architecture.md)** - System components, trust boundaries, task policy, ratchet invariant, kernel enforcement and experimental architecture.
-2. **[workflow.md](workflow.md)** - End-to-end task lifecycle, process/subprocess handling, approval flow and B0/B1/P1 experiment workflows.
-3. **[implementation_plan.md](implementation_plan.md)** - Phased, step-wise build plan with deliverables and exit criteria.
-4. **[success_criteria.md](success_criteria.md)** - Measurable functional, security, utility, performance and reproducibility targets.
-5. **[test_criteria.md](test_criteria.md)** - Comprehensive test catalogue with test IDs, procedures and expected results.
-6. **[code_execution_agent.md](code_execution_agent.md)** - Detailed build contract for the code-execution agent and its Docker worker, including Dockerfile/Compose templates and launcher requirements.
+1. **[architecture.md](docs/architecture.md)** - System components, trust boundaries, task policy, ratchet invariant, kernel enforcement and experimental architecture.
+2. **[workflow.md](docs/workflow.md)** - End-to-end task lifecycle, process/subprocess handling, approval flow and B0/B1/P1 experiment workflows.
+3. **[implementation_plan.md](docs/implementation_plan.md)** - Phased, step-wise build plan with deliverables and exit criteria.
+4. **[success_criteria.md](docs/success_criteria.md)** - Measurable functional, security, utility, performance and reproducibility targets.
+5. **[test_criteria.md](docs/test_criteria.md)** - Comprehensive test catalogue with test IDs, procedures and expected results.
+6. **[code_execution_agent.md](docs/code_execution_agent.md)** - Detailed build contract for the code-execution agent and its Docker worker, including Dockerfile/Compose templates and launcher requirements.
 
 ## Instructions for the AI coding agent
 

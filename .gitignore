@@ -1,2 +1,24 @@
 **AI_Agent_Privilege_Confinement_Synopsis.pdf
 
+
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Local planning notes (not tracked)
+docs/PHASE_PLAN.md
+
+# Python / Rust build outputs
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+/target/
+
+# Generated run data
+runs/
+evaluation/results/
+*.sqlite

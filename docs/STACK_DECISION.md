@@ -27,3 +27,17 @@ Use local controller/Rust communication, minimal graph state and local checkpoin
 ## Trade-off
 
 The hybrid design introduces a Python/Rust protocol and two build toolchains. Keep the protocol versioned, typed and small; test serialization, stale policy hashes, failure handling and authorization on every request.
+
+## Implementation decisions (2026-11-03)
+
+| # | Decision |
+|---|---|
+| D1 | The planner LLM is any **OpenAI-compatible endpoint** reached through `langchain-openai`. `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL` come from the controller's `.env` (git-ignored; template in `.env.example`). `PLANNER=mock` is the default and is required for all security tests. |
+| D2 | The worker entrypoint is a single Rust binary, `argus-worker`, with no Python adapter inside the worker. |
+| D3 | v1 untrusted runtimes are Python and C. seccomp profiles: `python-build-v1`, `c-build-v1`, `minimal-run-v1`. |
+| D4 | The Rust authority is a long-running daemon, `ratchetd`, on a `0600` Unix socket. A separate approval socket serves the trusted approval CLI. Ratchet state lives only in Rust. See `protocol.md`. |
+| D5 | Python 3.12 is pinned through `uv` for both the controller and the worker image. |
+| D6 | Rust confinement crates: `landlock` and the pure-Rust `seccompiler`, so the image needs no libseccomp. |
+| D7 | The controller starts **one container per approved action** through a narrow Python `docker` SDK adapter with a hard-coded hardened configuration. The controller itself runs on the host, not in a container, so that it never needs the Docker socket mounted into a container. |
+| D8 | Each task workspace is a **named Docker volume** at `/workspace/task`, staged in and out as tar streams through the archive API. There are no host bind mounts. |
+| D9 | The experiment arm (`B0` / `B1` / `P1`) is a single setting shared by the controller and `ratchetd`; every arm uses the same image and fixtures. |
