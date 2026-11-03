@@ -411,3 +411,11 @@ def test_sub_daemon_does_not_outlive_action_in_container(b0: Path, sandbox: dc.T
         ),
     )
     assert res["status"] == "completed" and res["descendants_killed"] >= 1, res
+
+
+def test_executor_refuses_unbounded_substitute_volume(image: dc.WorkerImage, b0: Path) -> None:
+    with dc.TaskSandbox(image, "subst") as sb:
+        g = Gate(b0, "dkr-subst")
+        dc._docker(["rm", "-f", sb.holder])
+        with pytest.raises(dc.ConfigDrift, match="holder"):
+            dc.DockerExecutor(sb).execute(_py(g, "print(1)"))

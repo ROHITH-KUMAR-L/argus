@@ -266,6 +266,29 @@ class TaskSandbox:
             ]
         )
 
+    def verify(self) -> None:
+        """Refuse to run unless the task volume is ours, bounded, and held.
+
+        `docker create --mount type=volume,source=X` silently auto-creates a
+        missing named volume (plain, disk-backed, unbounded), so the executor
+        must check before every dispatch (FAIL-007).
+        """
+        proc = _docker(["volume", "inspect", self.volume], check=False)
+        if proc.returncode != 0:
+            raise ConfigDrift([f"task volume {self.volume} is missing"])
+        vol = json.loads(proc.stdout)[0]
+        opts = vol.get("Options") or {}
+        problems = []
+        if (vol.get("Labels") or {}).get("argus.role") != "workspace":
+            problems.append("task volume lacks the argus workspace label")
+        if opts.get("type") != "tmpfs" or f"size={self.size_bytes}" not in opts.get("o", ""):
+            problems.append(f"task volume is not the size-capped tmpfs: {opts}")
+        state = _docker(["inspect", "--format", "{{.State.Running}}", self.holder], check=False)
+        if state.returncode != 0 or state.stdout.strip() != b"true":
+            problems.append("holder container is not running")
+        if problems:
+            raise ConfigDrift(problems)
+
     def stage(self, tar_bytes: bytes) -> None:
         _docker(["cp", "-", f"{self.holder}:{WORKSPACE}"], input=tar_bytes, timeout=120)
 
@@ -299,6 +322,7 @@ class DockerExecutor:
     def execute(self, dispatch: dict[str, Any]) -> dict[str, Any]:
         policy = json.loads(dispatch["canonical_policy"])
         limits = policy["limits"]
+        self.sandbox.verify()  # before create: Docker would auto-create a missing volume
         name = _safe_name(
             "argus-w", dispatch["run_id"], dispatch["action_id"], uuid.uuid4().hex[:6]
         )
@@ -372,11 +396,12 @@ def _synthetic(
 
 
 def leaked_resources() -> dict[str, list[str]]:
-    """Argus containers/volumes still present (RES-010 / DKR-013)."""
+    """Argus containers/volumes still present (RES-010 / DKR-013).
+
+    Matches by label *and* by name prefix: a volume Docker auto-created for a
+    missing source would carry no argus label.
+    """
     c = _docker(["ps", "-a", "-q", "--filter", "label=argus.role"]).stdout.decode().split()
-    v = (
-        _docker(["volume", "ls", "-q", "--filter", "label=argus.role=workspace"])
-        .stdout.decode()
-        .split()
-    )
-    return {"containers": c, "volumes": v}
+    c += _docker(["ps", "-a", "-q", "--filter", "name=^argus-"]).stdout.decode().split()
+    v = _docker(["volume", "ls", "-q"]).stdout.decode().split()
+    return {"containers": sorted(set(c)), "volumes": sorted(x for x in v if x.startswith("argus-"))}

@@ -56,6 +56,19 @@ pub enum Termination {
     TimedOut,
 }
 
+/// One process observed in the action's tree (sampled; short-lived
+/// processes can be missed; observation only, never enforcement).
+#[derive(Debug, Clone, Serialize)]
+pub struct ObservedProcess {
+    pub pid: i32,
+    pub ppid: i32,
+    pub comm: String,
+    pub first_seen_ms: u64,
+}
+
+pub const MAX_OBSERVED: usize = 512;
+const SAMPLE_EVERY: Duration = Duration::from_millis(20);
+
 #[derive(Debug, Clone, Serialize)]
 pub struct RunOutcome {
     pub termination: Termination,
@@ -72,6 +85,8 @@ pub struct RunOutcome {
     pub cpu_seconds: f64,
     /// Limit inferred from the terminating signal, if any.
     pub limit_hit: Option<&'static str>,
+    pub process_tree: Vec<ObservedProcess>,
+    pub process_tree_truncated: bool,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -131,6 +146,59 @@ fn direct_children() -> Vec<i32> {
         }
     }
     out
+}
+
+/// (pid, ppid, comm) for every process visible in /proc.
+fn proc_table() -> Vec<(i32, i32, String)> {
+    let mut out = Vec::new();
+    let Ok(dir) = std::fs::read_dir("/proc") else { return out };
+    for e in dir.flatten() {
+        let Ok(pid) = e.file_name().to_string_lossy().parse::<i32>() else { continue };
+        let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) else { continue };
+        let (Some(open), Some(close)) = (stat.find('('), stat.rfind(')')) else { continue };
+        let comm = stat[open + 1..close].to_string();
+        let mut it = stat[close + 2..].split_whitespace();
+        let _state = it.next();
+        if let Some(ppid) = it.next().and_then(|p| p.parse().ok()) {
+            out.push((pid, ppid, comm));
+        }
+    }
+    out
+}
+
+/// Record descendants of `root` not seen before.
+fn sample_tree(root: i32, start: Instant, seen: &mut Vec<ObservedProcess>, truncated: &mut bool) {
+    let table = proc_table();
+    let mut members: std::collections::BTreeSet<i32> = seen.iter().map(|p| p.pid).collect();
+    members.insert(root);
+    // Fixed-point expansion over ppid links (reparented orphans point at us,
+    // the subreaper, so also accept children of the supervisor itself).
+    let me = sys::getpid();
+    loop {
+        let before = members.len();
+        for (pid, ppid, _) in &table {
+            if (members.contains(ppid) || *ppid == me) && *pid != me {
+                members.insert(*pid);
+            }
+        }
+        if members.len() == before {
+            break;
+        }
+    }
+    for (pid, ppid, comm) in table {
+        if members.contains(&pid) && !seen.iter().any(|p| p.pid == pid) {
+            if seen.len() >= MAX_OBSERVED {
+                *truncated = true;
+                return;
+            }
+            seen.push(ObservedProcess {
+                pid,
+                ppid,
+                comm,
+                first_seen_ms: start.elapsed().as_millis() as u64,
+            });
+        }
+    }
 }
 
 /// Kill and reap every remaining descendant. Returns how many were killed.
@@ -238,7 +306,14 @@ pub fn run(spec: RunSpec) -> Result<RunOutcome, SpawnError> {
 
     let deadline = start + spec.timeout;
     let mut timed_out = false;
+    let mut tree = Vec::new();
+    let mut tree_truncated = false;
+    let mut next_sample = Instant::now();
     let status = loop {
+        if Instant::now() >= next_sample {
+            sample_tree(pgid, start, &mut tree, &mut tree_truncated);
+            next_sample = Instant::now() + SAMPLE_EVERY;
+        }
         match child.try_wait() {
             Ok(Some(s)) => break Some(s),
             Ok(None) => {}
@@ -251,7 +326,8 @@ pub fn run(spec: RunSpec) -> Result<RunOutcome, SpawnError> {
         }
         std::thread::sleep(Duration::from_millis(5));
     };
-    // The action is over: nothing it started may outlive it.
+    // Last look before cleanup, then: nothing the action started may outlive it.
+    sample_tree(pgid, start, &mut tree, &mut tree_truncated);
     let descendants_killed = kill_tree(pgid);
     let duration_ms = start.elapsed().as_millis() as u64;
 
@@ -294,5 +370,7 @@ pub fn run(spec: RunSpec) -> Result<RunOutcome, SpawnError> {
         peak_memory_bytes: usage.max_rss_bytes,
         cpu_seconds: usage.cpu_seconds,
         limit_hit,
+        process_tree: tree,
+        process_tree_truncated: tree_truncated,
     })
 }

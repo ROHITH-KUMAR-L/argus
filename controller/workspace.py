@@ -136,6 +136,20 @@ def safe_extract(
     Every member is checked before anything is written. Any unsafe member
     rejects the whole export.
     """
+    try:
+        return _safe_extract(data, dest, strip_prefix=strip_prefix, expected=expected)
+    except tarfile.TarError as exc:
+        # Truncated or corrupt streams are rejected, never partially accepted.
+        raise ExportRejected([f"corrupt tar stream: {exc}"]) from exc
+
+
+def _safe_extract(
+    data: bytes,
+    dest: Path,
+    *,
+    strip_prefix: str | None,
+    expected: set[str] | None,
+) -> list[Artifact]:
     reasons: list[str] = []
     plan: list[tuple[str, tarfile.TarInfo]] = []
     try:

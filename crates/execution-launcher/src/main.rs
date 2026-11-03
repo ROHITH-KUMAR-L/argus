@@ -74,6 +74,8 @@ struct WorkerResult {
     resource_usage: ResourceUsage,
     limit_hit: Option<&'static str>,
     descendants_killed: u32,
+    process_tree: Vec<process_supervisor::ObservedProcess>,
+    process_tree_truncated: bool,
     confinement: ConfinementReport,
     #[serde(skip_serializing_if = "Value::is_null")]
     file_result: Value,
@@ -102,6 +104,8 @@ impl WorkerResult {
             resource_usage: ResourceUsage::default(),
             limit_hit: None,
             descendants_killed: 0,
+            process_tree: Vec::new(),
+            process_tree_truncated: false,
             confinement: ConfinementReport {
                 mode: "none",
                 installed: false,
@@ -340,6 +344,8 @@ fn main() {
     r.exit_code = o.exit_code;
     r.signal = o.signal;
     r.descendants_killed = o.descendants_killed;
+    r.process_tree = o.process_tree;
+    r.process_tree_truncated = o.process_tree_truncated;
     r.limit_hit = o.limit_hit;
     r.resource_usage = ResourceUsage {
         peak_memory_bytes: o.peak_memory_bytes,

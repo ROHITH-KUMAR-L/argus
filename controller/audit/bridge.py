@@ -125,3 +125,118 @@ def action_decision(
         resource=str(resource)[:4096] if resource else None,
         data={"evidence": decision.get("evidence", {})},
     )
+
+
+MAX_PROCESS_EVENTS = 64
+EXCERPT_BYTES = 4096
+
+
+def worker_result(audit: AuditWriter, *, dispatch: dict[str, Any], result: dict[str, Any]) -> None:
+    """Record one worker result: confinement, process tree, limits and outcome.
+
+    Enforcement-layer attribution: a denial reported by a kernel-confined
+    worker is a ``landlock`` denial for filesystem errors; in B0 the same errno
+    can only come from the outer container boundary (``docker``).
+    """
+    from controller.audit.redact import bound
+
+    epoch = dispatch["epoch"]
+    common = {
+        "epoch": epoch,
+        "policy_hash": dispatch["policy_hash"],
+        "action_id": dispatch["action_id"],
+    }
+    conf = result.get("confinement", {})
+    kernel = dispatch.get("confinement") == "kernel"
+    if result.get("status") == "confinement_failed":
+        audit.append(
+            EventType.CONFINEMENT_INSTALL_FAILED,
+            Component.LAUNCHER,
+            decision="deny",
+            reason_code="CONFINEMENT_INSTALL_FAILED",
+            **common,
+            data={"detail": conf.get("detail")},
+        )
+    elif kernel and conf.get("installed"):
+        ll, sc = conf.get("landlock", {}), conf.get("seccomp", {})
+        audit.append(
+            EventType.CONFINEMENT_INSTALLED,
+            Component.LAUNCHER,
+            **common,
+            data={
+                "landlock_kernel_abi": ll.get("kernel_abi"),
+                "landlock_handled_abi": ll.get("handled_abi"),
+                "handled_fs": ll.get("handled_fs"),
+                "rules": ll.get("rules"),
+                "scoped": ll.get("scoped"),
+                "seccomp_profile": sc.get("profile"),
+                "seccomp_mode": sc.get("mode"),
+                "seccomp_installed": conf.get("seccomp_installed"),
+            },
+        )
+    tree = result.get("process_tree") or []
+    for proc in tree[:MAX_PROCESS_EVENTS]:
+        audit.append(
+            EventType.PROCESS_SPAWNED,
+            Component.SUPERVISOR,
+            **common,
+            process_id=proc["pid"],
+            parent_process_id=proc["ppid"],
+            data={"comm": proc["comm"], "first_seen_ms": proc["first_seen_ms"]},
+        )
+    if tree:
+        audit.append(
+            EventType.PROCESS_TERMINATED,
+            Component.SUPERVISOR,
+            **common,
+            data={
+                "observed": len(tree),
+                "events_truncated": len(tree) > MAX_PROCESS_EVENTS
+                or bool(result.get("process_tree_truncated")),
+                "descendants_killed_at_end": result.get("descendants_killed", 0),
+            },
+        )
+    if result.get("limit_hit"):
+        layer = "docker" if result["limit_hit"] == "memory_bytes" else "rlimit"
+        audit.append(
+            EventType.RESOURCE_LIMIT_HIT,
+            Component.SUPERVISOR,
+            enforcement_layer=layer,
+            reason_code=str(result["limit_hit"]).upper(),
+            **common,
+            data={"signal": result.get("signal")},
+        )
+    if result.get("status") == "timeout":
+        audit.append(
+            EventType.TIMEOUT, Component.SUPERVISOR, reason_code="WALL_TIME_EXCEEDED", **common
+        )
+    fr = result.get("file_result") or {}
+    if fr.get("error_kind") == "permission_denied":
+        audit.append(
+            EventType.FILESYSTEM_DENIAL,
+            Component.WORKER,
+            decision="deny",
+            enforcement_layer="landlock" if kernel else "docker",
+            reason_code="PERMISSION_DENIED",
+            resource=dispatch["operation"].get("path"),
+            **common,
+            data={"message": fr.get("message")},
+        )
+    stdout, _ = bound(result.get("stdout", ""), EXCERPT_BYTES)
+    stderr, _ = bound(result.get("stderr", ""), EXCERPT_BYTES)
+    audit.append(
+        EventType.WORKER_FINISHED,
+        Component.WORKER,
+        reason_code=str(result.get("status", "error")).upper(),
+        duration_ms=float(result.get("duration_ms") or 0),
+        **common,
+        data={
+            "status": result.get("status"),
+            "exit_code": result.get("exit_code"),
+            "signal": result.get("signal"),
+            "stdout_excerpt": stdout,
+            "stderr_excerpt": stderr,
+            "stdout_truncated": result.get("stdout_truncated"),
+            "resource_usage": result.get("resource_usage"),
+        },
+    )

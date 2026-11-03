@@ -2,7 +2,7 @@
 
 Tracks which phase of `docs/implementation_plan.md` the build is in, what is done, and what is still pending. Updated and committed at the end of every phase.
 
-**Current phase:** Phase 8 — Subprocess-aware enforcement and dynamic narrowing (in progress). Milestones M1–M4 reached.
+**Current phase:** Phase 9 — LangGraph agent loop (in progress). Milestones M1–M5 reached.
 
 ## Environment of record
 
@@ -28,8 +28,8 @@ Tracks which phase of `docs/implementation_plan.md` the build is in, what is don
 | 5 | Docker worker image and outer sandbox | M3 | **done** |
 | 6 | Landlock integration | M4 | **done** |
 | 7 | seccomp-BPF integration | M4 | **done** |
-| 8 | Subprocess-aware enforcement and narrowing | M5 | in progress |
-| 9 | LangGraph agent loop (mock planner, then OpenAI-compatible LLM) | M6 | pending |
+| 8 | Subprocess-aware enforcement and narrowing | M5 | **done** |
+| 9 | LangGraph agent loop (mock planner, then OpenAI-compatible LLM) | M6 | in progress |
 | 10 | Evaluation harness (B0 / B1 / P1) | M7 | pending |
 | 11 | Performance, hardening, final report | M7 | pending |
 
@@ -205,12 +205,40 @@ Bug found and fixed: with the allowlist installed first, adding the guard filter
 
 Preliminary overhead: in-worker median B0 16 ms, P1 denylist 16 ms, P1 strict 17 ms; container lifecycle ≈ 300 ms per action.
 
+### Phase 8: Subprocess-aware enforcement and narrowing (2026-11-03)
+- `process-supervisor`: process-tree observation. The unconfined supervisor samples `/proc` every 20 ms and records `(pid, ppid, comm, first_seen_ms)` (max 512). Observation only; enforcement never depends on it, and very short-lived processes can be missed.
+- `argus-worker` results include `process_tree`.
+- `controller/audit/bridge.worker_result`: emits CONFINEMENT_INSTALLED/FAILED, PROCESS_SPAWNED per process (with ppid), PROCESS_TERMINATED summary, RESOURCE_LIMIT_HIT (rlimit/docker layer), TIMEOUT, FILESYSTEM_DENIAL (landlock vs docker layer by arm) and WORKER_FINISHED with redacted, bounded excerpts.
+- Narrowing between actions: each action gets a fresh container under the *current* epoch hash, so a narrowed permission is unusable in the next action both at the gate and in the kernel. No process from an earlier action can survive into it.
+- `TaskSandbox.verify()` runs before every dispatch: the task volume must exist with the argus label, the tmpfs driver and its size cap, and the holder must be running.
+
+**Tests / evidence:** `uv run pytest`: 192 passed, 1 skipped.
+- `tests/confinement/test_subprocess.py` (9):
+  - SUB-001…005, 010: shell, grandchild, fork and Python-child delegation of file and syscall violations, all denied;
+  - SUB-007/008: background, `setsid` and `nohup` writers do not survive the action;
+  - SUB-009 + AUD-006: process tree and parent links recorded and turned into audit events;
+  - AUD-007: CPU limit → RESOURCE_LIMIT_HIT (rlimit);
+  - SUB-011/012: child env is the minimal set, no inherited fds;
+  - SUB-015: PID limit under P1;
+  - SUB-016: three concurrent tasks isolated;
+  - SUB-017: narrowing denies at the gate and in the kernel on the next action;
+  - SUB-018: a detached writer from the earlier action stops before the narrowed epoch.
+- `tests/integration/test_fail.py` (5 new, 8 cross-referenced): FAIL-007 missing volume refused, no substitute volume created; FAIL-008 ratchetd down means no dispatch; FAIL-011 approval channel down means the expansion stays pending; FAIL-012 truncated export rejected; FAIL-014 missing cgroup controllers reported.
+- SUB-013/014 are covered by RES-007/RES-012 (Phase 5).
+
+Findings fixed during the phase:
+1. **Docker silently auto-creates a missing named volume**, so an action could run on an unbounded disk-backed volume. The executor now verifies the volume and holder before every dispatch (FAIL-007), and `leaked_resources` also matches by name (three stale volumes from the failing runs were found and removed).
+2. Truncated export streams raised a raw `tarfile` error; they are now cleanly rejected.
+
 ## Pending work (current phase)
 
-- [ ] Process events: report PIDs / exit and descendant counts per action into the audit store (AUD-006); correlate with policy transitions
-- [ ] Adversarial delegation suite: parent delegates prohibited work to children / grandchildren / daemons / shell pipelines across fs, syscall, network and signal (SUB-001 … SUB-018)
-- [ ] Narrowing between actions: a new container per action under the new epoch hash; prove that a narrowed permission is unusable in the next action even by a process started earlier (none can survive)
-- [ ] FAIL-001 … FAIL-014 fault-injection suite
+- [ ] Typed `TaskState` graph state (minimal, no secrets) and Pydantic `ActionProposal` / `ActionPlan` (`extra="forbid"`, bounded sizes)
+- [ ] LangGraph `StateGraph` with nodes intake → context_loader → planner → plan_validator → action_normalizer → policy_decision → (approval_interrupt | worker_dispatch) → result_collector → completion_check → finalize; bounded replan on DENY
+- [ ] Narrow LangChain proposal tools; tool-registry audit (STK-008)
+- [ ] Deterministic mock planner (scripted scenarios); then the OpenAI-compatible adapter from `.env` with retry/abort
+- [ ] Approval interrupt answered via `argus approve` (approval socket); resume opens a new epoch
+- [ ] Optional SQLite checkpointer with redaction; stale-checkpoint replay revalidated by Rust
+- [ ] AGT-001 … AGT-016, STK-003 … STK-015
 
 ## Known limitations / open items
 
