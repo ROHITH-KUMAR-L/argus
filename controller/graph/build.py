@@ -213,7 +213,17 @@ def build_graph(
                 "outcome_reason": "PLANNER_UNAVAILABLE",
             }
         deps.scratch["raw"] = raw
-        return {"proposal": None, "step": state.get("step", 0) + 1}
+        # Adopt the current authoritative epoch/policy (e.g. after a controller
+        # narrowing between steps). Within an epoch this can only be narrower;
+        # dispatch is revalidated again in worker_dispatch regardless.
+        st = deps.rust.get_state(state["task_id"])
+        return {
+            "proposal": None,
+            "step": state.get("step", 0) + 1,
+            "epoch": st["epoch"],
+            "epoch_id": st["epoch_id"],
+            "policy_hash": st["policy_hash"],
+        }
 
     def plan_validator(state: AgentState) -> AgentState:
         if state.get("done"):

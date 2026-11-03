@@ -100,6 +100,7 @@ def run_task(
     runs_dir: Path | None = None,
     on_interrupt: InterruptHandler | None = None,
     checkpointer: Any = None,
+    executor_wrapper: Callable[[Executor], Executor] | None = None,
 ) -> RunResult:
     """Run ``spec``. Pass ``executor`` for tests (e.g. MockExecutor); otherwise a
     fresh Docker sandbox is created and destroyed around the run."""
@@ -149,6 +150,8 @@ def run_task(
             )
         else:
             metadata["executor"] = type(executor).__name__
+        if executor_wrapper is not None:
+            executor = executor_wrapper(executor)
         deps = Deps(
             rust=rust,
             executor=executor,
