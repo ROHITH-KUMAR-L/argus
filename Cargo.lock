@@ -182,10 +182,13 @@ dependencies = [
  "libc",
  "linux-confinement",
  "policy-model",
+ "policy-validator",
+ "privilege-ratchet",
  "process-supervisor",
  "protocol",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
 ]
 

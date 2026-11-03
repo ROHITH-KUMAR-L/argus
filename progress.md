@@ -2,7 +2,7 @@
 
 Tracks which phase of `docs/implementation_plan.md` the build is in, what is done, and what is still pending. Updated and committed at the end of every phase.
 
-**Current phase:** Phase 4 — Execution supervisor and process lifecycle (in progress). Milestone M1 (policy core) reached.
+**Current phase:** Phase 5 — Docker worker image and outer sandbox (in progress). Milestones M1 and M2 reached.
 
 ## Environment of record
 
@@ -23,8 +23,8 @@ Tracks which phase of `docs/implementation_plan.md` the build is in, what is don
 | 1 | Policy DSL and Rust validator | M1 | **done** |
 | 2 | Permission model and monotonic ratchet (`ratchetd`) | M1 | **done** |
 | 3 | Structured audit and task state | M2 | **done** |
-| 4 | Execution supervisor and process lifecycle | M2 | in progress |
-| 5 | Docker worker image and outer sandbox | M3 | pending |
+| 4 | Execution supervisor and process lifecycle | M2 | **done** |
+| 5 | Docker worker image and outer sandbox | M3 | in progress |
 | 6 | Landlock integration | M4 | pending |
 | 7 | seccomp-BPF integration | M4 | pending |
 | 8 | Subprocess-aware enforcement and narrowing | M5 | pending |
@@ -103,13 +103,36 @@ Tracks which phase of `docs/implementation_plan.md` the build is in, what is don
 
 Remaining AUD cases (005 kernel install, 006 process events, 007 resource events, 015 artifact hash, 016 invalid archive) need real execution and are scheduled for Phases 4–8.
 
+### Phase 4: Execution supervisor and process lifecycle (2026-11-03)
+- `crates/process-supervisor`:
+  - argv-only spawn with a cleared environment and its own process group;
+  - rlimits (CPU soft < hard so SIGXCPU identifies the limit, AS, FSIZE, NOFILE, NPROC, core 0) and a fail-closed pre-exec confinement hook;
+  - bounded stdout/stderr that keeps draining past the cap; wall deadline;
+  - whole-tree cleanup: process group, then subreaper reaping of reparented descendants (daemons, `setsid`), and `kill(-1)` only as PID 1; rusage.
+- `crates/execution-launcher` (`argus-worker`):
+  - strict `WorkerRequest` check: version, ids, arm ↔ confinement consistency, re-hash and canonical re-validation of the embedded policy, workspace / executable / timeout checks for kernel-confined arms;
+  - file operations (list, read, write, strict unified-diff `apply_patch`) run in a re-executed child with the same rlimits and confinement hook, use `O_NOFOLLOW`, and report errno-classified errors;
+  - JSON `WorkerResult`.
+- `crates/linux-confinement`: `plan` / `install` API, a **fail-closed stub** until Phases 6–7.
+- `controller/workspace.py`: approved-file staging tar re-owned to UID 10001 (refuses symlinks and special files); two-pass export validator (absolute, `..`, symlink, hardlink, device, FIFO, unexpected or outside-root entries reject the whole export) with `O_EXCL | O_NOFOLLOW` extraction and SHA-256 artifacts.
+- `controller/executor.py`: `Executor` protocol and `MockExecutor` (tests only).
+
+**Tests / evidence:** `cargo test`: 78 passed (+20).
+- Supervisor: 11 tests covering argv not shell-interpreted, cleared env, bounded output, timeout tree kill, `setsid`/daemon descendants killed, CPU, file-size and open-files limits, failing hook prevents exec, missing executable.
+- Worker: 6 tests covering B0 exec and file ops, symlink refusal, timeout, B1/P1 **fail closed** while kernel confinement is unimplemented, 8 tampering variants rejected.
+- Patch: 3 unit tests.
+
+`uv run pytest`: 130 passed (+14 staging/export tests: AUD-015, AUD-016, SC-F13, POL-020 re-ownership). Two findings were fixed during the phase: SIGXFSZ attribution through a shell wrapper (now only direct signals are attributed) and an EPIPE in the test harness.
+
+**Caveat (carried into Phase 5):** process-tree termination has been demonstrated on the host with benign processes only. The exit criterion "in test containers", hostile resource cases (fork bomb, memory) and cancellation by container kill are the first Phase 5 items.
+
 ## Pending work (current phase)
 
-- [ ] `process-supervisor`: argv-only fork/exec, subreaper, process-group kill, wall timeout, rlimits, bounded stdout/stderr, rusage
-- [ ] `argus-worker` entrypoint: read and validate the `WorkerRequest` (re-hash the policy), run the operation, emit a JSON result
-- [ ] Built-in file operations (list / read / write / apply_patch) executed inside the worker
-- [ ] Controller: per-task workspace staging into a volume (tar), safe artifact export (rejects traversal, links and special files) with SHA-256 hashes (AUD-015/016)
-- [ ] Mock executor for graph tests; RES / SUB lifecycle tests inside a container
+- [ ] Retry the `rust:1.99-slim` pull; multi-stage `docker/Dockerfile.executor` pinned by digest; `argus-worker` root-owned `0755` entrypoint, UID 10001
+- [ ] `controller/docker_client.py`: hard-coded hardened run config (cap_drop ALL, no-new-privileges, read-only root, network none, pids/mem/cpu/ulimits, tmpfs `/tmp`, named task volume only)
+- [ ] `DockerExecutor`: per-action container, request on stdin, deadline kill, removal; volume staging/export via the archive API
+- [ ] `argus preflight` (code_execution_agent.md §13) and run metadata (image digest, effective security config from `docker inspect`)
+- [ ] DKR-001 … DKR-017, STK-016; Phase 4 container re-run (tree kill, fork bomb, memory, cancellation)
 
 ## Known limitations / open items
 
