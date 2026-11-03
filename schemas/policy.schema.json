@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argus.local/schemas/policy-1.0.json",
+  "title": "Argus task policy (schema_version 1.0)",
+  "description": "Shape-only schema used for defensive checks in the Python controller. Semantic validation (paths, catalogs, deployment maxima, Landlock ABI) and the authoritative decision are performed by the Rust policy-validator.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "task_id", "workspace", "filesystem", "commands", "syscalls", "network", "limits", "approval"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "task_id": {"type": "string", "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}$"},
+    "description": {"type": "string", "maxLength": 1024},
+    "workspace": {"$ref": "#/$defs/abs_path"},
+    "filesystem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["read_only", "read_write"],
+      "properties": {
+        "read_only": {"$ref": "#/$defs/path_list"},
+        "read_write": {"$ref": "#/$defs/path_list"},
+        "deny": {"$ref": "#/$defs/path_list"},
+        "required_rights": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {"enum": ["execute", "write_file", "read_file", "read_dir", "remove_dir", "remove_file", "make_char", "make_dir", "make_reg", "make_sock", "make_fifo", "make_block", "make_sym", "refer", "truncate", "ioctl_dev"]}
+        }
+      }
+    },
+    "commands": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_tool_names", "allowed_executables", "shell"],
+      "properties": {
+        "allowed_tool_names": {"type": "array", "maxItems": 64, "items": {"type": "string", "pattern": "^[a-z_]{1,64}$"}},
+        "allowed_executables": {"$ref": "#/$defs/path_list"},
+        "shell": {"enum": ["deny", "allow"]}
+      }
+    },
+    "syscalls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile"],
+      "properties": {
+        "profile": {"type": "string", "pattern": "^[a-z0-9-]{1,64}$"},
+        "deny_high_risk": {"type": "array", "maxItems": 64, "items": {"type": "string", "pattern": "^[a-z0-9_]{1,64}$"}}
+      }
+    },
+    "network": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": {"enum": ["none", "tcp_ports"]},
+        "allowed_tcp_ports": {"$ref": "#/$defs/port_list"},
+        "allowed_udp_ports": {"$ref": "#/$defs/port_list"}
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["wall_time_seconds", "cpu_seconds", "memory_bytes", "file_size_bytes", "process_count", "open_files"],
+      "properties": {
+        "wall_time_seconds": {"$ref": "#/$defs/positive"},
+        "cpu_seconds": {"$ref": "#/$defs/positive"},
+        "memory_bytes": {"$ref": "#/$defs/positive"},
+        "file_size_bytes": {"$ref": "#/$defs/positive"},
+        "process_count": {"$ref": "#/$defs/positive"},
+        "open_files": {"$ref": "#/$defs/positive"}
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_for_privilege_step_up", "approval_mode"],
+      "properties": {
+        "required_for_privilege_step_up": {"const": true},
+        "approval_mode": {"const": "new_execution_epoch"}
+      }
+    }
+  },
+  "$defs": {
+    "abs_path": {"type": "string", "minLength": 1, "maxLength": 4096, "pattern": "^/[^%\\\\\\u0000-\\u001f]*$"},
+    "path_list": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/abs_path"}},
+    "port_list": {"type": "array", "maxItems": 64, "items": {"type": "integer", "minimum": 0, "maximum": 65535}},
+    "positive": {"type": "integer", "minimum": 1, "maximum": 18446744073709551615}
+  }
+}

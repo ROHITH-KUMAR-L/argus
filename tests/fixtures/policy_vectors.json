@@ -1,0 +1,2784 @@
+{
+ "description": "Shared policy validation vectors (STK-002). expect = ACCEPT or the first expected error code.",
+ "deployment": "builtin",
+ "vectors": [
+  {
+   "id": "POL-001",
+   "test": "valid python template",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-001",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "ACCEPT"
+  },
+  {
+   "id": "POL-001b",
+   "test": "smallest valid policy (optional fields omitted)",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-001b",
+    "description": "",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr"
+     ],
+     "read_write": [
+      "/workspace/task"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [],
+     "allowed_executables": [],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "minimal-run-v1"
+    },
+    "network": {
+     "mode": "none"
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "ACCEPT"
+  },
+  {
+   "id": "POL-002a",
+   "test": "missing schema_version",
+   "policy": {
+    "task_id": "vec-pol-002a",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "MISSING_FIELD"
+  },
+  {
+   "id": "POL-002b",
+   "test": "missing task_id",
+   "policy": {
+    "schema_version": "1.0",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "MISSING_FIELD"
+  },
+  {
+   "id": "POL-002c",
+   "test": "missing limits section",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-002c",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "MISSING_FIELD"
+  },
+  {
+   "id": "POL-003a",
+   "test": "unknown top-level field",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-003a",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    },
+    "grant_all": true
+   },
+   "expect": "UNKNOWN_FIELD"
+  },
+  {
+   "id": "POL-003b",
+   "test": "unknown nested field",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-003b",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128,
+     "gpu_count": 1
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "UNKNOWN_FIELD"
+  },
+  {
+   "id": "POL-004a",
+   "test": "string where integer expected",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-004a",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": "512MB",
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "WRONG_TYPE"
+  },
+  {
+   "id": "POL-004b",
+   "test": "string where array expected",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-004b",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": "/workspace/task",
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "WRONG_TYPE"
+  },
+  {
+   "id": "POL-005a",
+   "test": "truncated JSON",
+   "raw": "{\"schema_version\": \"1.0\", \"task_id\": \"x\"",
+   "expect": "INVALID_JSON"
+  },
+  {
+   "id": "POL-005b",
+   "test": "trailing garbage",
+   "raw": "{\"schema_version\": \"1.0\", \"task_id\": \"TEMPLATE\", \"description\": \"Python coding task: edit sources and run tests\", \"workspace\": \"/workspace/task\", \"filesystem\": {\"read_only\": [\"/usr\", \"/etc/ld.so.cache\", \"/dev/null\", \"/dev/urandom\"], \"read_write\": [\"/workspace/task\", \"/tmp\"], \"deny\": [\"/etc/shadow\", \"/root\", \"/home\"]}, \"commands\": {\"allowed_tool_names\": [\"list_files\", \"read_file\", \"write_file\", \"apply_patch\", \"run_command\", \"run_tests\", \"request_permission\"], \"allowed_executables\": [\"/usr/local/bin/python3\"], \"shell\": \"deny\"}, \"syscalls\": {\"profile\": \"python-build-v1\", \"deny_high_risk\": []}, \"network\": {\"mode\": \"none\", \"allowed_tcp_ports\": [], \"allowed_udp_ports\": []}, \"limits\": {\"wall_time_seconds\": 60, \"cpu_seconds\": 45, \"memory_bytes\": 536870912, \"file_size_bytes\": 52428800, \"process_count\": 32, \"open_files\": 128}, \"approval\": {\"required_for_privilege_step_up\": true, \"approval_mode\": \"new_execution_epoch\"}} {}",
+   "expect": "INVALID_JSON"
+  },
+  {
+   "id": "POL-005c",
+   "test": "duplicate key",
+   "raw": "{\"schema_version\": \"1.0\", \"task_id\": \"TEMPLATE\", \"description\": \"Python coding task: edit sources and run tests\", \"workspace\": \"/workspace/task\", \"filesystem\": {\"read_only\": [\"/usr\", \"/etc/ld.so.cache\", \"/dev/null\", \"/dev/urandom\"], \"read_write\": [\"/workspace/task\", \"/tmp\"], \"deny\": [\"/etc/shadow\", \"/root\", \"/home\"]}, \"commands\": {\"allowed_tool_names\": [\"list_files\", \"read_file\", \"write_file\", \"apply_patch\", \"run_command\", \"run_tests\", \"request_permission\"], \"allowed_executables\": [\"/usr/local/bin/python3\"], \"shell\": \"deny\"}, \"syscalls\": {\"profile\": \"python-build-v1\", \"deny_high_risk\": []}, \"network\": {\"mode\": \"none\", \"allowed_tcp_ports\": [], \"allowed_udp_ports\": []}, \"limits\": {\"wall_time_seconds\": 60, \"cpu_seconds\": 45, \"memory_bytes\": 536870912, \"file_size_bytes\": 52428800, \"process_count\": 32, \"open_files\": 128}, \"approval\": {\"required_for_privilege_step_up\": true, \"approval_mode\": \"new_execution_epoch\"}, \"task_id\": \"other\"}",
+   "expect": "DUPLICATE_FIELD"
+  },
+  {
+   "id": "POL-006a",
+   "test": "negative cpu",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-006a",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": -1,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "INVALID_VALUE"
+  },
+  {
+   "id": "POL-006b",
+   "test": "negative memory",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-006b",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": -512,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "INVALID_VALUE"
+  },
+  {
+   "id": "POL-006c",
+   "test": "zero process count",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-006c",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 0,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "LIMIT_INVALID"
+  },
+  {
+   "id": "POL-007",
+   "test": "memory above deployment maximum",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-007",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 1099511627776,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "LIMIT_EXCEEDS_MAXIMUM"
+  },
+  {
+   "id": "POL-008a",
+   "test": "dot-dot traversal",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-008a",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task/../../etc"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "PATH_TRAVERSAL"
+  },
+  {
+   "id": "POL-008b",
+   "test": "empty component",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-008b",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr//lib"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "PATH_INVALID"
+  },
+  {
+   "id": "POL-008c",
+   "test": "percent-encoded traversal",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-008c",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/workspace/%2e%2e/etc"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "PATH_TRAVERSAL"
+  },
+  {
+   "id": "POL-008d",
+   "test": "relative path",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-008d",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "usr"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "PATH_INVALID"
+  },
+  {
+   "id": "POL-011",
+   "test": "duplicate and overlapping rules normalize",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-011",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/usr",
+      "/usr/lib",
+      "/workspace/task/src",
+      "/etc/ld.so.cache"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "ACCEPT"
+  },
+  {
+   "id": "POL-012",
+   "test": "deny inside an allowed hierarchy",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-012",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/workspace/task/secrets"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "DENY_ALLOW_OVERLAP"
+  },
+  {
+   "id": "POL-013",
+   "test": "unknown syscall profile",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-013",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "anything-goes-v9",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "UNKNOWN_SYSCALL_PROFILE"
+  },
+  {
+   "id": "POL-013b",
+   "test": "unknown syscall name",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-013b",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": [
+      "not_a_syscall"
+     ]
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "UNKNOWN_SYSCALL"
+  },
+  {
+   "id": "POL-015a",
+   "test": "invalid network mode",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-015a",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "full",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "INVALID_VALUE"
+  },
+  {
+   "id": "POL-015b",
+   "test": "malformed port",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-015b",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [
+      70000
+     ],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "INVALID_VALUE"
+  },
+  {
+   "id": "POL-015c",
+   "test": "udp requested",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-015c",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": [
+      53
+     ]
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "NETWORK_UNSUPPORTED_PROTOCOL"
+  },
+  {
+   "id": "POL-015d",
+   "test": "ports with mode none",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-015d",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [
+      443
+     ],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "NETWORK_INVALID"
+  },
+  {
+   "id": "POL-015e",
+   "test": "network not permitted by deployment",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-015e",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "tcp_ports",
+     "allowed_tcp_ports": [
+      443
+     ]
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "NETWORK_NOT_PERMITTED"
+  },
+  {
+   "id": "POL-018a",
+   "test": "future schema version",
+   "policy": {
+    "schema_version": "2.0",
+    "task_id": "vec-pol-018a",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "UNSUPPORTED_SCHEMA_VERSION"
+  },
+  {
+   "id": "POL-018b",
+   "test": "old schema version",
+   "policy": {
+    "schema_version": "0.9",
+    "task_id": "vec-pol-018b",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "UNSUPPORTED_SCHEMA_VERSION"
+  },
+  {
+   "id": "POL-019a",
+   "test": "root filesystem",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-019a",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "PATH_FORBIDDEN"
+  },
+  {
+   "id": "POL-019b",
+   "test": "home directory",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-019b",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/home"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "PATH_FORBIDDEN"
+  },
+  {
+   "id": "POL-019c",
+   "test": "root home",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-019c",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/root"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "PATH_FORBIDDEN"
+  },
+  {
+   "id": "POL-019d",
+   "test": "docker socket",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-019d",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/var/run/docker.sock"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "PATH_FORBIDDEN"
+  },
+  {
+   "id": "POL-019e",
+   "test": "raw device",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-019e",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/dev/sda"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "PATH_FORBIDDEN"
+  },
+  {
+   "id": "POL-019f",
+   "test": "/etc exposes shadow",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-019f",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "PATH_FORBIDDEN"
+  },
+  {
+   "id": "POL-019g",
+   "test": "write outside writable roots",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-019g",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/usr/lib"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "PATH_NOT_WRITABLE_ROOT"
+  },
+  {
+   "id": "POL-020a",
+   "test": "workspace outside the worker workspace path",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-020a",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/opt/elsewhere",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "WORKSPACE_MISMATCH"
+  },
+  {
+   "id": "POL-020b",
+   "test": "workspace not granted",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-pol-020b",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "WORKSPACE_NOT_GRANTED"
+  },
+  {
+   "id": "CMD-001",
+   "test": "unknown tool",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-cmd-001",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "shell_exec"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "UNKNOWN_TOOL"
+  },
+  {
+   "id": "CMD-002",
+   "test": "executable not in catalog",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-cmd-002",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/bin/curl"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "UNKNOWN_EXECUTABLE"
+  },
+  {
+   "id": "CMD-003",
+   "test": "shell executable with shell denied",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-cmd-003",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/bin/sh"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "SHELL_CONFLICT"
+  },
+  {
+   "id": "CMD-004",
+   "test": "executable outside execute grants",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-cmd-004",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/etc/ld.so.cache"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "EXECUTABLE_NOT_GRANTED"
+  },
+  {
+   "id": "APP-001",
+   "test": "approval mode in-place",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-app-001",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "in_place"
+    }
+   },
+   "expect": "APPROVAL_MODE_UNSUPPORTED"
+  },
+  {
+   "id": "APP-002",
+   "test": "step-up without approval",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "vec-app-002",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": false,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "APPROVAL_MODE_UNSUPPORTED"
+  },
+  {
+   "id": "ID-001",
+   "test": "bad task id",
+   "policy": {
+    "schema_version": "1.0",
+    "task_id": "../etc",
+    "description": "Python coding task: edit sources and run tests",
+    "workspace": "/workspace/task",
+    "filesystem": {
+     "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+     ],
+     "read_write": [
+      "/workspace/task",
+      "/tmp"
+     ],
+     "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+     ]
+    },
+    "commands": {
+     "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+     ],
+     "allowed_executables": [
+      "/usr/local/bin/python3"
+     ],
+     "shell": "deny"
+    },
+    "syscalls": {
+     "profile": "python-build-v1",
+     "deny_high_risk": []
+    },
+    "network": {
+     "mode": "none",
+     "allowed_tcp_ports": [],
+     "allowed_udp_ports": []
+    },
+    "limits": {
+     "wall_time_seconds": 60,
+     "cpu_seconds": 45,
+     "memory_bytes": 536870912,
+     "file_size_bytes": 52428800,
+     "process_count": 32,
+     "open_files": 128
+    },
+    "approval": {
+     "required_for_privilege_step_up": true,
+     "approval_mode": "new_execution_epoch"
+    }
+   },
+   "expect": "INVALID_TASK_ID"
+  }
+ ]
+}

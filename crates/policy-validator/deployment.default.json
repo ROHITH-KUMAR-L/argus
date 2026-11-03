@@ -1,0 +1,62 @@
+{
+  "deployment_version": "1.0",
+  "workspace_path": "/workspace/task",
+  "writable_roots": ["/workspace/task", "/tmp"],
+  "protected_paths": [
+    "/etc/shadow",
+    "/etc/gshadow",
+    "/etc/sudoers",
+    "/home",
+    "/root",
+    "/run",
+    "/var/run",
+    "/proc",
+    "/sys",
+    "/boot",
+    "/dev",
+    "/var/lib/docker"
+  ],
+  "forbidden_subtrees": [
+    "/home",
+    "/root",
+    "/run",
+    "/var/run",
+    "/proc",
+    "/sys",
+    "/boot",
+    "/dev",
+    "/var/lib/docker"
+  ],
+  "device_allowlist": ["/dev/null", "/dev/zero", "/dev/full", "/dev/random", "/dev/urandom"],
+  "max_limits": {
+    "wall_time_seconds": 600,
+    "cpu_seconds": 600,
+    "memory_bytes": 2147483648,
+    "file_size_bytes": 1073741824,
+    "process_count": 256,
+    "open_files": 1024
+  },
+  "clamp_limits": false,
+  "allow_network": false,
+  "tool_names": [
+    "list_files",
+    "read_file",
+    "write_file",
+    "apply_patch",
+    "run_command",
+    "run_tests",
+    "request_permission"
+  ],
+  "executables": [
+    "/usr/local/bin/python3",
+    "/usr/bin/gcc",
+    "/usr/bin/cc",
+    "/usr/bin/make",
+    "/usr/bin/true",
+    "/usr/bin/sh",
+    "/usr/bin/bash"
+  ],
+  "shell_executables": ["/usr/bin/sh", "/usr/bin/bash"],
+  "max_list_entries": 64,
+  "max_description_len": 1024
+}

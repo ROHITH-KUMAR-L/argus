@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0",
+  "task_id": "TEMPLATE",
+  "description": "Python coding task: edit sources and run tests",
+  "workspace": "/workspace/task",
+  "filesystem": {
+    "read_only": [
+      "/usr",
+      "/etc/ld.so.cache",
+      "/dev/null",
+      "/dev/urandom"
+    ],
+    "read_write": [
+      "/workspace/task",
+      "/tmp"
+    ],
+    "deny": [
+      "/etc/shadow",
+      "/root",
+      "/home"
+    ]
+  },
+  "commands": {
+    "allowed_tool_names": [
+      "list_files",
+      "read_file",
+      "write_file",
+      "apply_patch",
+      "run_command",
+      "run_tests",
+      "request_permission"
+    ],
+    "allowed_executables": [
+      "/usr/local/bin/python3"
+    ],
+    "shell": "deny"
+  },
+  "syscalls": {
+    "profile": "python-build-v1",
+    "deny_high_risk": []
+  },
+  "network": {
+    "mode": "none",
+    "allowed_tcp_ports": [],
+    "allowed_udp_ports": []
+  },
+  "limits": {
+    "wall_time_seconds": 60,
+    "cpu_seconds": 45,
+    "memory_bytes": 536870912,
+    "file_size_bytes": 52428800,
+    "process_count": 32,
+    "open_files": 128
+  },
+  "approval": {
+    "required_for_privilege_step_up": true,
+    "approval_mode": "new_execution_epoch"
+  }
+}
