@@ -85,6 +85,11 @@ def _run(args: argparse.Namespace) -> int:
     st = load_settings()
     root = Path(__file__).resolve().parent.parent
     spec = TaskSpec.from_file(args.task, root)
+    # ratchetd never reopens a task id, so each invocation gets a fresh one.
+    import uuid
+
+    spec.task_id = f"{spec.task_id}-{uuid.uuid4().hex[:6]}"[:64]
+    spec.policy = {**spec.policy, "task_id": spec.task_id}
     kind = args.planner or st.planner
     planner: Planner
     if kind == "llm":

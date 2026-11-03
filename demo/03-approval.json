@@ -1,0 +1,57 @@
+{
+ "task_id": "demo-approval",
+ "goal": "Compile and run main.c (gcc is not in the initial policy).",
+ "policy": "python-task",
+ "workspace_src": "workspace-c",
+ "success_check": {
+  "type": "run_command",
+  "executable": "/usr/local/bin/python3",
+  "argv": [
+   "/usr/local/bin/python3",
+   "-c",
+   "import subprocess,sys\nout=subprocess.run(['/workspace/task/hello'],capture_output=True,text=True).stdout\nsys.exit(0 if out.strip()=='hello from C' else 1)"
+  ]
+ },
+ "mock_script": [
+  {
+   "type": "run_command",
+   "executable": "/usr/bin/gcc",
+   "argv": [
+    "/usr/bin/gcc",
+    "-o",
+    "/workspace/task/hello",
+    "/workspace/task/main.c"
+   ]
+  },
+  {
+   "type": "request_permission",
+   "reason": "Compiling C needs /usr/bin/gcc",
+   "add_executables": [
+    "/usr/bin/gcc"
+   ]
+  },
+  {
+   "type": "run_command",
+   "executable": "/usr/bin/gcc",
+   "argv": [
+    "/usr/bin/gcc",
+    "-o",
+    "/workspace/task/hello",
+    "/workspace/task/main.c"
+   ]
+  },
+  {
+   "type": "run_command",
+   "executable": "/usr/local/bin/python3",
+   "argv": [
+    "/usr/local/bin/python3",
+    "-c",
+    "import subprocess;print(subprocess.run(['/workspace/task/hello'],capture_output=True,text=True).stdout)"
+   ]
+  },
+  {
+   "type": "finish",
+   "summary": "built and ran hello"
+  }
+ ]
+}
