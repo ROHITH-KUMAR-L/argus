@@ -331,6 +331,17 @@ pub fn validate(mut p: Policy, ctx: &ValidationContext<'_>) -> Result<Validated,
     }
 
     // --- syscalls -------------------------------------------------------
+    if let Some(supported) = profile(&p.syscalls.profile).and_then(|pr| pr.supported_executables) {
+        for x in &p.commands.allowed_executables {
+            if !supported.contains(&x.as_str()) {
+                errs.push(Issue::new(
+                    "$.syscalls.profile",
+                    "PROFILE_EXECUTABLE_MISMATCH",
+                    format!("profile {} is not validated for {x:?}", p.syscalls.profile),
+                ));
+            }
+        }
+    }
     if profile(&p.syscalls.profile).is_none() {
         errs.push(Issue::new(
             "$.syscalls.profile",

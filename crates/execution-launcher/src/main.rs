@@ -46,8 +46,9 @@ struct ConfinementReport {
     #[serde(skip_serializing_if = "Value::is_null")]
     landlock: Value,
     seccomp_profile: Option<String>,
-    /// Phase 7 installs seccomp; until then this is reported as false.
     seccomp_installed: bool,
+    #[serde(skip_serializing_if = "Value::is_null")]
+    seccomp: Value,
     no_new_privs: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     detail: Option<String>,
@@ -108,6 +109,7 @@ impl WorkerResult {
                 landlock: Value::Null,
                 seccomp_profile: None,
                 seccomp_installed: false,
+                seccomp: Value::Null,
                 no_new_privs: false,
                 detail: None,
             },
@@ -246,8 +248,9 @@ fn main() {
                     installed: false,
                     landlock_abi: Some(plan.landlock.handled_abi),
                     landlock: serde_json::to_value(&plan.landlock).unwrap_or(Value::Null),
-                    seccomp_profile: Some(plan.seccomp_profile.clone()),
+                    seccomp_profile: Some(plan.seccomp.profile.clone()),
                     seccomp_installed: false,
+                    seccomp: serde_json::to_value(&plan.seccomp).unwrap_or(Value::Null),
                     no_new_privs: plan.no_new_privs,
                     detail: None,
                 };
@@ -332,6 +335,8 @@ fn main() {
         }
     };
     r.confinement.installed = is_kernel;
+    // install() succeeded only if both Landlock and seccomp were applied.
+    r.confinement.seccomp_installed = is_kernel;
     r.exit_code = o.exit_code;
     r.signal = o.signal;
     r.descendants_killed = o.descendants_killed;

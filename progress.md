@@ -2,7 +2,7 @@
 
 Tracks which phase of `docs/implementation_plan.md` the build is in, what is done, and what is still pending. Updated and committed at the end of every phase.
 
-**Current phase:** Phase 7 — seccomp-BPF integration (in progress). Milestones M1, M2 and M3 reached.
+**Current phase:** Phase 8 — Subprocess-aware enforcement and dynamic narrowing (in progress). Milestones M1–M4 reached.
 
 ## Environment of record
 
@@ -27,8 +27,8 @@ Tracks which phase of `docs/implementation_plan.md` the build is in, what is don
 | 4 | Execution supervisor and process lifecycle | M2 | **done** |
 | 5 | Docker worker image and outer sandbox | M3 | **done** |
 | 6 | Landlock integration | M4 | **done** |
-| 7 | seccomp-BPF integration | M4 | in progress |
-| 8 | Subprocess-aware enforcement and narrowing | M5 | pending |
+| 7 | seccomp-BPF integration | M4 | **done** |
+| 8 | Subprocess-aware enforcement and narrowing | M5 | in progress |
 | 9 | LangGraph agent loop (mock planner, then OpenAI-compatible LLM) | M6 | pending |
 | 10 | Evaluation harness (B0 / B1 / P1) | M7 | pending |
 | 11 | Performance, hardening, final report | M7 | pending |
@@ -185,15 +185,34 @@ Also AUD-005 PASS. Totals: `cargo test` 82 passed; `uv run pytest` 166 passed, 1
 
 **Interim state:** B1/P1 currently run with Landlock but **without seccomp** (`seccomp_installed: false` is reported honestly). Phase 7 makes seccomp a required, fail-closed control. No experimental results are collected before then.
 
+### Phase 7: seccomp-BPF integration (2026-11-03)
+- D6 confirmed: `seccompiler` 0.5 compiles every profile for x86_64; no libseccomp is needed.
+- `linux-confinement::seccomp`: three stacked filters (namespace-flag `clone` guard, `clone3` → ENOSYS guard, profile). The profile is installed last so an allowlist also blocks further stacking. Installed after Landlock, before `execve`; fail closed.
+- Profile catalog: `io_uring_*`, `pidfd_getfd` and `process_madvise` added to the high-risk set (before any experiment used v1). New **`python-strict-v1`** default-deny allowlist (127 syscalls) derived from an `strace` of real workloads in a debug-only image. `supported_executables` metadata enforced by the validator and by `plan` (SEC-018).
+- Worker result reports `seccomp_installed` and the plan (profile, mode, listed count, extra denials, BPF instruction count).
+- `docs/confinement.md`: seccomp design, catalog, attribution method, x32 note, preliminary overhead.
+
+**Tests / evidence:** `tests/confinement/test_seccomp.py`: 11 passed in containers.
+- SEC-001/002: installed, `PR_GET_SECCOMP` = 2, NoNewPrivs = 1.
+- SEC-003…010: 15 high-risk probes → EPERM.
+- Attribution: `ptrace(TRACEME)` EPERM in P1 vs 0 in B0; extra-denied `uname` EPERM in P1 vs works in B0; AF_UNIX `socket` under `minimal-run-v1`.
+- SEC-011/012/013: real pytest suite (`tmp_path`, subprocess, threads) passes under both `python-build-v1` and `python-strict-v1`.
+- SEC-014/015: child and grandchild inherit. SEC-016: stacking an allow-all filter cannot relax denials. SEC-017: seccomp install failure → `confinement_failed`, no side effect. SEC-018: profile/executable mismatch rejected. SEC-019: strict profile blocks unlisted calls while normal I/O works. SEC-020: denylist is default-allow, `clone3` → ENOSYS. x32 unreachable.
+
+Totals: `cargo test` 83 passed; `uv run pytest` 177 passed, 1 skipped (DKR-015). Lint clean.
+
+Bug found and fixed: with the allowlist installed first, adding the guard filters needed the now-denied `seccomp` syscall, so the strict profile always failed closed. The install order is now guards first, profile last; regression covered by SEC-011/019.
+
+Preliminary overhead: in-worker median B0 16 ms, P1 denylist 16 ms, P1 strict 17 ms; container lifecycle ≈ 300 ms per action.
+
 ## Pending work (current phase)
 
-- [ ] Spike: confirm `seccompiler` 0.5 compiles the three profiles on x86_64; record the decision (D6)
-- [ ] `linux-confinement::seccomp`: profile → BPF (EPERM for denied calls, kill on arch mismatch); install after Landlock, before `execve`; fail closed
-- [ ] Measure profile compatibility: Python and C legitimate workloads under each profile
-- [ ] Default-deny allowlist profile derived from measured syscall traces (`python-strict-v1`) with documented semantics
-- [ ] SEC-001 … SEC-020 in containers (denied syscalls return the expected errno; child, grandchild, fork/clone/exec inheritance; overhead timing)
+- [ ] Process events: report PIDs / exit and descendant counts per action into the audit store (AUD-006); correlate with policy transitions
+- [ ] Adversarial delegation suite: parent delegates prohibited work to children / grandchildren / daemons / shell pipelines across fs, syscall, network and signal (SUB-001 … SUB-018)
+- [ ] Narrowing between actions: a new container per action under the new epoch hash; prove that a narrowed permission is unusable in the next action even by a process started earlier (none can survive)
+- [ ] FAIL-001 … FAIL-014 fault-injection suite
 
 ## Known limitations / open items
 
-- The `rust:1.99-slim` image pull failed with a network reset on 2026-11-03; retry in Phase 5.
+- Docker's bridge network has no egress on the development host (likely a host firewall rule on forwarded traffic). Image builds use `--network host`; workers are unaffected (`--network none`). Fixing it needs sudo on the host firewall, so it is left for the owner.
 - Docker is rootful on the development host. Controller access to the Docker daemon is root-equivalent; see `docs/threat_model.md`.

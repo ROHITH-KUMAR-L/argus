@@ -1,6 +1,6 @@
 # Kernel Confinement: What Is Enforced
 
-This document covers **Landlock** (Phase 6). seccomp-BPF (Phase 7) will be added to it. Every statement here holds for the environment of record in `progress.md` (Linux 7.2, Landlock kernel ABI 10, handled ABI 9) and is backed by `tests/confinement/`.
+This document covers **Landlock** (Phase 6) and **seccomp-BPF** (Phase 7). Every statement here holds for the environment of record in `progress.md` (Linux 7.2, Landlock kernel ABI 10, handled ABI 9) and is backed by `tests/confinement/`.
 
 ## Sequence in `argus-worker`
 
@@ -38,3 +38,36 @@ Each denial test runs the same probe in **B0** (same image, same policy, no proj
 - It does not restrict which executables run inside granted hierarchies. Executable allowlisting is broker-level: the planner can only request catalog executables, but code already running can execute anything under `/usr` (granted read + execute).
 - Descriptors opened *before* restriction would remain usable. The design opens none for the task.
 - Older-ABI behaviour (LL-017) is covered by planning unit tests (`crates/linux-confinement/tests/plan.rs`). Running on an older kernel is **UNSUPPORTED** on this host.
+
+## seccomp-BPF (Phase 7)
+
+Filters are compiled in the parent by the pure-Rust `seccompiler` 0.5 (x86_64; programs validate the architecture) and installed in the child **after** Landlock and immediately before `execve`. Three filters are stacked, and the kernel applies the most restrictive result. Install order: guards first, profile last.
+
+1. **namespace guard**: `clone` with any `CLONE_NEW*` flag returns EPERM;
+2. **clone3 guard**: `clone3` returns ENOSYS. Its flags live in a struct seccomp cannot read, so glibc falls back to `clone`, which filter 1 checks;
+3. **profile** (installed last): an allowlist profile does not permit `seccomp`, so nothing (including the task) can add filters after it.
+
+`seccompiler::apply_filter` sets `no_new_privs` (already set by Landlock). If any step fails, the result is `confinement_failed` and nothing runs (SEC-017).
+
+### Profile catalog (`crates/policy-model/src/profiles.rs`)
+
+| Profile | Mode | Content | Validated for |
+|---|---|---|---|
+| `python-build-v1` | **denylist** (default allow) | 54 high-risk syscalls → EPERM: mounts, namespaces, modules, kexec, reboot, ptrace, `process_vm_*`, `pidfd_getfd`, BPF, perf, keyrings, clock setting, swap, quotas, `userfaultfd`, `io_uring_*`, … | any catalog executable |
+| `c-build-v1` | denylist | same set as `python-build-v1` | any |
+| `minimal-run-v1` | denylist | high-risk set plus all socket creation and connection | any |
+| `python-strict-v1` | **allowlist** (default deny, EPERM) | 127 syscalls: 61 measured with `strace` (interpreter startup, pytest with `tmp_path` / subprocess / threads, file I/O, the worker file-op child) plus a documented margin of `*at` variants, timers, waits and signal returns; no high-risk call (unit-tested) | `/usr/local/bin/python3` only (SEC-018) |
+
+The denylist profiles are compatibility and defense-in-depth profiles. They are **not** complete allowlists and are never labelled as such (SEC-020). `python-strict-v1` is the default-deny profile (SEC-019).
+
+### Attribution
+
+Docker's default seccomp profile is the outer layer and already blocks many high-risk calls, so B0 is not a clean contrast for them. Tests attribute denials to the project filter with calls Docker *allows* but the profile denies (`ptrace(PTRACE_TRACEME)`, AF_UNIX `socket` under `minimal-run-v1`, a policy-added `uname` denial), and read the state with `prctl(PR_GET_SECCOMP)` = 2 and `PR_GET_NO_NEW_PRIVS` = 1.
+
+### x32
+
+x32 syscalls (`nr | 0x40000000`) return ENOSYS on this kernel and Docker configuration, inside P1 too (tested). The `seccompiler` filters do not add an explicit x32 check, so a kernel built with `CONFIG_X86_X32_ABI` and a permissive outer profile would need one. That combination is **unsupported**.
+
+### Measured overhead (preliminary; Phase 11 does the full measurement)
+
+Trivial Python command, median of 10 warm runs on the environment of record: in-worker duration B0 16 ms, P1 `python-build-v1` 16 ms, P1 `python-strict-v1` 17 ms. The per-action container lifecycle (~300 ms) dominates.
