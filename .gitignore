@@ -20,6 +20,6 @@ __pycache__/
 
 # Generated run data
 runs/
-evaluation/results/
+evaluation/results/*/perf-work/
 *.sqlite
 config/worker-image.lock

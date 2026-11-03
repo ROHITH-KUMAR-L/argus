@@ -76,7 +76,9 @@ def files(sb: dc.TaskSandbox, tmp: Path) -> dict[str, str]:
     return {a.path: (dest / a.path).read_text() for a in arts}
 
 
-def test_sub_001_to_005_010_delegated_violations_denied(p1: Path, sandbox: dc.TaskSandbox) -> None:
+def test_sub_001_to_006_sub_010_delegated_violations_denied(
+    p1: Path, sandbox: dc.TaskSandbox
+) -> None:
     probe = textwrap.dedent(f"""
         import ctypes, json, os, subprocess, sys
         libc = ctypes.CDLL(None, use_errno=True)

@@ -4,16 +4,46 @@ This repository (**Argus**) contains the build specification and the implementat
 
 > **Safety:** adversarial fixtures run only inside disposable, hardened Docker workers. Never run them on a developer host.
 
-## Quick start (development)
+## Quick start
+
+Requirements: Linux x86_64 with Landlock enabled, Docker Engine (cgroup v2), Rust (cargo), and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-cp .env.example .env          # controller-only settings; PLANNER=mock by default
-uv sync                       # Python 3.12 controller + evaluation deps
-uv run pytest                 # Python unit tests
-cargo test                    # Rust policy/ratchet/confinement crates
+cp .env.example .env                 # controller-only settings; PLANNER=mock by default
+uv sync && cargo build               # Python 3.12 controller + Rust authority/worker
+./scripts/build_worker_image.sh      # hardened worker image, ID pinned in config/worker-image.lock
+uv run argus preflight               # verifies the hardening on this host (must print "ok": true)
+
+uv run argus daemon --arm P1 &       # start the Rust policy/ratchet authority (ratchetd)
+uv run argus run task.json           # run one task in disposable, kernel-confined workers
+uv run argus approve --task-id T --expansion-id X --approver you   # trusted human approval channel
 ```
 
-Supporting documents: [protocol.md](docs/protocol.md) is the controller ↔ `ratchetd` wire contract, and [threat_model.md](docs/threat_model.md) is the threat model.
+A task spec (`task.json`) names the task, goal, policy template, workspace directory and an independent success check:
+
+```json
+{"task_id": "demo-1", "goal": "Make the tests pass", "policy": "python-task",
+ "workspace_src": "./my-repo", "success_check": {"type": "run_tests", "target": "python-pytest"}}
+```
+
+Set `PLANNER=llm` and `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL` in `.env` to use any OpenAI-compatible model; the key never leaves the controller.
+
+**Checks and evaluation**
+
+```bash
+./scripts/check.sh                                               # every gate: fmt, clippy, tests, ruff, mypy, pytest
+uv run python -m evaluation.harness --reps 3 --out evaluation/results/<batch>   # B0/B1/P1 comparison
+uv run python -m evaluation.perf --batch evaluation/results/<batch>             # PERF-001…010
+uv run python scripts/test_matrix.py                             # docs/test_matrix.md traceability
+```
+
+Supporting documents:
+- [protocol.md](docs/protocol.md): the controller ↔ `ratchetd` wire contract.
+- [threat_model.md](docs/threat_model.md): the threat model.
+- [policy.md](docs/policy.md): the policy reference.
+- [confinement.md](docs/confinement.md): what Landlock and seccomp enforce.
+- [test_matrix.md](docs/test_matrix.md): test traceability.
+- [final_report.md](docs/final_report.md): measured results.
 
 ## Documents and recommended reading order
 

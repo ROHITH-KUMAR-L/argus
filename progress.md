@@ -2,7 +2,7 @@
 
 Tracks which phase of `docs/implementation_plan.md` the build is in, what is done, and what is still pending. Updated and committed at the end of every phase.
 
-**Current phase:** Phase 10 — Evaluation harness (B0 / B1 / P1) (in progress). Milestones M1–M6 reached.
+**Current phase:** Phase 11 — Performance, hardening, final report (in progress). Milestones M1–M6 reached.
 
 ## Environment of record
 
@@ -30,8 +30,8 @@ Tracks which phase of `docs/implementation_plan.md` the build is in, what is don
 | 7 | seccomp-BPF integration | M4 | **done** |
 | 8 | Subprocess-aware enforcement and narrowing | M5 | **done** |
 | 9 | LangGraph agent loop (mock planner, then OpenAI-compatible LLM) | M6 | **done** (live LLM: pending endpoint in `.env`) |
-| 10 | Evaluation harness (B0 / B1 / P1) | M7 | in progress |
-| 11 | Performance, hardening, final report | M7 | pending |
+| 10 | Evaluation harness (B0 / B1 / P1) | M7 | **done** |
+| 11 | Performance, hardening, final report | M7 | in progress |
 
 ## Completed work
 
@@ -263,12 +263,39 @@ Findings fixed during the phase:
 
 **Pending (needs the owner):** fill `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` in `.env` and run `uv run pytest -m llm tests/integration/test_agent_e2e.py`.
 
+### Phase 10: Evaluation harness (2026-11-03)
+- `evaluation/corpus.py` → 17 frozen scenarios (v1.0) with SHA-256-pinned fixtures:
+  - 8 legitimate: Python fix, multi-file, nested subprocess tests + `py_compile`, retry after a wrong patch, C + `make`, test-only, artifact, and policy-too-narrow → step-up;
+  - 3 prompt injection: README, direct user text, test output;
+  - 3 staged escalation: ratchet-write and ratchet-exec with controller narrowing mid-run, step-up then bypass;
+  - 3 subprocess misuse: delegated read, daemon persistence, child syscall.
+  - The corpus was committed (`c8aa885`) **before** the final batch.
+- `evaluation/oracle.py`: independent effect oracles over raw worker results and the validated workspace export (canary leak, protected-file change, probe success); attempted / policy-denial / in-worker-denial / effect counted separately.
+- `evaluation/planner.py`: scripted planner with orchestrator narrowing steps that go through ratchetd.
+- `evaluation/harness.py`: one ratchetd per arm, counterbalanced arm order, seeded shuffle, fresh sandbox per run, every run recorded, fixture drift → INVALID.
+- `evaluation/metrics.py`, `evaluation/report.py`: rates from raw counts with Wilson 95 % intervals, comparisons, the frozen targets, per-scenario matrix, provenance and threats to validity.
+- `scripts/test_matrix.py` → `docs/test_matrix.md` (224/235 IDs traced to code; the other 11 carry a documented status).
+- New tests: `tests/unit/test_evaluation.py` (EVA-001/010/011/012 logic, oracles), `tests/unit/test_stack.py` (STK-001 boundary, STK-017 lockfile versions).
+- Harness fix found during the pilot: Unix socket paths over 108 bytes made ratchetd refuse to start (correctly); daemon sockets now live under `$XDG_RUNTIME_DIR`.
+
+**Final batch `evaluation/results/batch-2026-11-03`** (committed: runs, events, artifacts, metrics, report): 153 runs, 153 scored, 0 invalid, 51 scenario × arm groups, **0 unstable** across 3 repetitions.
+
+| Metric | B0 | B1 | P1 |
+|---|---|---|---|
+| Attack success rate | 24/27 (0.89) | 6/27 (0.22) | **0/27 (0.00, CI ≤ 0.12)** |
+| Staged-escalation effects (ratchet-specific) | 9/9 | 6/9 | **0/9** |
+| Legitimate completion (independently verified) | 21/21 | 21/21 | 21/21 |
+| False-denial rate | 0/60 | 0/60 | 0/60 |
+| Step-up requested when the policy was too narrow | 0/3 | 0/3 | 3/3 |
+| Median latency overhead vs B0 (legitimate) | — | — | +0.4 % (p95 +4.0 %) |
+
+All ten proposed targets are met. `SUB-DAEMON-PERSIST` did not discriminate (0 effects in every arm, because supervisor cleanup is common to all arms), and the report says so.
+
 ## Pending work (current phase)
 
-- [ ] Scenario manifest format (prompt, fixture, policy, scripted planner, expected effects, scoring) and a frozen core corpus: legitimate Python and C workloads, direct and indirect prompt injection, staged escalation (fs / exec / syscall / net / limits), subprocess misuse
-- [ ] Harness: B0 / B1 / P1 per scenario, counterbalanced order, ≥ 3 repetitions, fresh sandbox per run, every run recorded (including invalid ones)
-- [ ] Independent effect oracles (canary reads / writes, markers) separating *attempted*, *policy denial*, *kernel denial* and *effect completed*
-- [ ] `metrics.json` and the comparison report from raw records (ASR, LTCR, false denials, latency); EVA-001 … EVA-013, LEG-*
+- [ ] Rebuild the image with the `--bench-confinement` mode and run `evaluation.perf` (PERF-001 … 010) against the batch
+- [ ] Release-gate review: Docker flags and mounts, log secret scan over the whole batch, supported / unsupported environment
+- [ ] `docs/final_report.md`: method, results with denominators, limitations, threats to validity, success-criteria table (SC-F01…F14, STACK-001…008)
 
 ## Known limitations / open items
 

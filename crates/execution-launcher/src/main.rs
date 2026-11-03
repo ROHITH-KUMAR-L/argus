@@ -12,6 +12,7 @@
 //! child that installs rlimits and confinement before `execve`. If a required
 //! control cannot be installed, nothing runs (`confinement_failed`).
 
+mod bench;
 mod fileops;
 mod patch;
 mod preflight;
@@ -191,6 +192,13 @@ fn main() {
     let arg = std::env::args().nth(1);
     match arg.as_deref() {
         Some("--file-op") => std::process::exit(file_op_mode()),
+        Some("--bench-confinement") => {
+            let n = std::env::args()
+                .nth(2)
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(50);
+            std::process::exit(bench::main(n));
+        }
         Some("--preflight") => {
             println!("{}", preflight::report());
             return;

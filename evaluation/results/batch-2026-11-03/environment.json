@@ -1,0 +1,8 @@
+{
+  "kernel": "7.2.9-2-cachyos",
+  "machine": "x86_64",
+  "docker": "29.9.2",
+  "image_tag": "argus-worker:dev",
+  "image_id": "sha256:119949995c2cdcc599dbbb1d75ce0f22382c6431d2a0720bab543f12da56c0ba",
+  "python": "3.12.16"
+}

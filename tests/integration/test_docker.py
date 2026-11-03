@@ -174,7 +174,7 @@ def test_dkr_006_011_012_inspect(image: dc.WorkerImage, b0: Path, sandbox: dc.Ta
     assert i["Image"] == image.image_id  # DKR-014
 
 
-def test_dkr_013_and_res_010_no_leaks(image: dc.WorkerImage, b0: Path) -> None:
+def test_dkr_013_res_010_no_leaks(image: dc.WorkerImage, b0: Path) -> None:
     before = dc.leaked_resources()
     g = Gate(b0, "dkr-leak")
     with dc.TaskSandbox(image, "leak") as sb:

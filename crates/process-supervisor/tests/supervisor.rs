@@ -127,7 +127,7 @@ fn daemonized_and_setsid_descendants_do_not_survive() {
 }
 
 #[test]
-fn res_cpu_limit() {
+fn res_001_cpu_limit() {
     let _g = lock();
     let mut s = spec(&["/usr/bin/sh", "-c", "while :; do :; done"]);
     s.rlimits = Some(Rlimits {
@@ -143,7 +143,7 @@ fn res_cpu_limit() {
 }
 
 #[test]
-fn res_file_size_limit() {
+fn res_004_file_size_limit() {
     let _g = lock();
     let dir = tempfile::tempdir().unwrap();
     let mut s = spec(&["/usr/bin/sh", "-c", "exec head -c 100000 /dev/zero > big"]);
@@ -161,7 +161,7 @@ fn res_file_size_limit() {
 }
 
 #[test]
-fn res_open_files_limit() {
+fn res_005_open_files_limit() {
     let _g = lock();
     let mut s = spec(&[
         "/usr/bin/sh",

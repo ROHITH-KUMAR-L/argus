@@ -179,7 +179,7 @@ def test_too_many_denials_terminates(ratchet: Path, tmp_path: Path) -> None:
         ["not", "an", "object"],
     ],
 )
-def test_stk_003_agt_015_invalid_planner_output_rejected(bad: Any) -> None:
+def test_stk_003_stk_009_agt_015_invalid_planner_output_rejected(bad: Any) -> None:
     with pytest.raises(ProposalError):
         parse_proposal(bad)
 
