@@ -29,6 +29,8 @@ pub struct DeploymentConfig {
     pub executables: Vec<String>,
     /// Executables that count as shells (only permitted when `commands.shell = allow`).
     pub shell_executables: Vec<String>,
+    /// Symbolic `run_tests` targets -> argv (argv[0] must be a catalog executable).
+    pub test_targets: std::collections::BTreeMap<String, Vec<String>>,
     pub max_list_entries: usize,
     pub max_description_len: usize,
 }
@@ -58,6 +60,12 @@ mod tests {
         ];
         for p in all.into_iter().flatten() {
             check_absolute(p).unwrap_or_else(|e| panic!("{p}: {e}"));
+        }
+        for (name, argv) in &d.test_targets {
+            assert!(
+                d.executables.contains(&argv[0]),
+                "test target {name} uses non-catalog executable"
+            );
         }
         for s in &d.shell_executables {
             assert!(

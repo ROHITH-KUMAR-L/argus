@@ -57,6 +57,11 @@
     "/usr/bin/bash"
   ],
   "shell_executables": ["/usr/bin/sh", "/usr/bin/bash"],
+  "test_targets": {
+    "python-pytest": ["/usr/local/bin/python3", "-m", "pytest", "-q", "-p", "no:cacheprovider"],
+    "python-unittest": ["/usr/local/bin/python3", "-m", "unittest", "discover", "-q"],
+    "make-test": ["/usr/bin/make", "test"]
+  },
   "max_list_entries": 64,
   "max_description_len": 1024
 }

@@ -38,12 +38,12 @@ Rules:
 | Method | Params | Result | Notes |
 |---|---|---|---|
 | `health` | none | `{daemon_version, protocol_version, arm}` | Read-only |
-| `validate_policy` | `{policy}` | `{normalized_policy, policy_hash}` | No state change |
-| `open_task` | `{task_id, policy}` | `{task_id, epoch_id, epoch, policy_hash}` | Validates `policy` as P0 for epoch 1 |
-| `evaluate_action` | `{task_id, epoch_id, policy_hash, action}` | `{decision, reason_code, evidence, dispatch?}` | `decision` ∈ `ALLOW`, `DENY`, `APPROVAL_REQUIRED`. `dispatch` is present only on `ALLOW` and holds the effective-policy snapshot plus the resolved argv for the worker. |
-| `apply_narrowing` | `{task_id, epoch_id, expected_policy_hash, proposed_policy, reason}` | `{accepted, policy_hash, transition_id, delta?}` | Rejects any expansion with `PRIVILEGE_EXPANSION_DENIED` and the requested delta |
-| `request_expansion` | `{task_id, epoch_id, policy_hash, proposed_policy, reason}` | `{expansion_id, status: "APPROVAL_PENDING", delta}` | Never grants anything by itself |
-| `approve_expansion` | `{task_id, expansion_id, approver, decision}` | `{epoch_id, epoch, policy_hash}` or `{status: "DENIED"}` | **Approval socket only.** Approval closes the old epoch and opens a new one with a freshly validated policy. |
+| `validate_policy` | `{policy_json}` | `{normalized_policy, policy_hash}` | No state change |
+| `open_task` | `{task_id, policy_json}` | `{task_id, epoch_id, epoch, policy_hash}` | Validates `policy` as P0 for epoch 1 |
+| `evaluate_action` | `{task_id, epoch_id, policy_hash, run_id, action_id, action}` | `{decision, reason_code, evidence, dispatch?}` | `decision` ∈ `ALLOW`, `DENY`, `APPROVAL_REQUIRED`. `dispatch` is present only on `ALLOW` and holds the effective-policy snapshot plus the resolved argv for the worker. |
+| `apply_narrowing` | `{task_id, epoch_id, expected_policy_hash, proposed_policy_json, reason}` | `{accepted, policy_hash, transition_id, delta?}` | Rejects any expansion with `PRIVILEGE_EXPANSION_DENIED` and the requested delta |
+| `request_expansion` | `{task_id, epoch_id, policy_hash, proposed_policy_json, reason}` | `{expansion_id, status: "APPROVAL_PENDING", delta}` | Never grants anything by itself |
+| `approve_expansion` | `{task_id, expansion_id, approver, decision: "approve"\|"deny"}` | `{epoch_id, epoch, policy_hash}` or `{status: "DENIED"}` | **Approval socket only.** Approval closes the old epoch and opens a new one with a freshly validated policy. |
 | `close_epoch` | `{task_id, epoch_id, reason}` | `{closed: true}` | Further calls on that epoch return `EPOCH_CLOSED` |
 | `get_state` | `{task_id}` | `{epoch_id, epoch, policy_hash, transitions}` | Read-only |
 
@@ -51,11 +51,17 @@ Rules:
 
 ## 4. Error codes
 
-`MALFORMED_REQUEST`, `UNSUPPORTED_PROTOCOL_VERSION`, `REPLAYED_REQUEST`, `FRAME_TOO_LARGE`, `UNKNOWN_METHOD`, `UNKNOWN_TASK`, `TASK_EXISTS`, `EPOCH_CLOSED`, `STALE_EPOCH`, `STALE_POLICY_HASH`, `POLICY_VALIDATION_FAILED`, `PRIVILEGE_EXPANSION_DENIED`, `UNKNOWN_EXPANSION`, `METHOD_NOT_PERMITTED_ON_SOCKET`, `STATE_STORE_UNAVAILABLE`, `INTERNAL`.
+`MALFORMED_REQUEST`, `UNSUPPORTED_PROTOCOL_VERSION`, `REPLAYED_REQUEST`, `FRAME_TOO_LARGE`, `UNKNOWN_METHOD`, `UNKNOWN_TASK`, `TASK_EXISTS`, `EPOCH_CLOSED`, `STALE_EPOCH`, `STALE_POLICY_HASH`, `POLICY_VALIDATION_FAILED`, `PRIVILEGE_EXPANSION_DENIED`, `UNKNOWN_EXPANSION`, `METHOD_NOT_PERMITTED_ON_SOCKET`, `ARM_STATIC_POLICY`, `STATE_STORE_UNAVAILABLE`, `INTERNAL`.
+
+Policies travel as JSON **strings** (`policy_json`, `proposed_policy_json`) so that the Rust validator sees the exact text and can reject duplicate keys. A JSON object parsed on the Python side would have collapsed them silently.
+
+Arm behaviour: in **P1** every method behaves as described above. In **B1** the policy is static: `apply_narrowing` and `request_expansion` return `ARM_STATIC_POLICY`, and the action gate still applies. In **B0** there is no gate: `evaluate_action` allows any well-formed action, absolute paths included, and dispatches it with `confinement: none` to the Docker-bounded worker.
 
 ## 5. State persistence
 
-`ratchetd` keeps an append-only JSONL transition log under `$ARGUS_STATE_DIR` (default `$XDG_STATE_HOME/argus/ratchetd/`), which only the Rust daemon writes. On start it replays the log. If any record is unparsable, has a broken hash chain, or would broaden a policy, the daemon refuses to serve (`STATE_STORE_UNAVAILABLE`) instead of guessing.
+`ratchetd` keeps an append-only, hash-chained JSONL op log (`ratchet.log`, mode `0600`) under `$ARGUS_STATE_DIR` (default `$XDG_STATE_HOME/argus/ratchetd/`), which only the Rust daemon writes. Every state-changing op is appended and `fsync`ed **before** it is applied (write-ahead). If the append fails, the op is not applied and the caller gets `STATE_STORE_UNAVAILABLE`.
+
+Record 0 is a header that pins the log version, the experiment arm and the deployment hash. On start the daemon replays every op through the same deterministic engine. If the header does not match the current configuration, or any record is unparsable or truncated, out of sequence, or has a broken hash chain, the daemon refuses to start and does not fall back to an empty or permissive state. A lock file prevents two daemons from sharing one state directory.
 
 ## 6. Controller → worker request (stdin of `argus-worker`)
 

@@ -3,11 +3,13 @@
 //! These are plain data structures. Validation and canonicalization live in
 //! `policy-validator`; subset/ratchet logic lives in `privilege-ratchet`.
 
+pub mod action;
 pub mod permissions;
 pub mod policy;
 pub mod profiles;
 pub mod syscalls_x86_64;
 
+pub use action::*;
 pub use permissions::{Access, PermissionSet};
 pub use policy::*;
 pub use profiles::{profile, ProfileMode, SyscallProfile, PROFILES};

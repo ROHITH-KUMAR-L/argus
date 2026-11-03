@@ -27,6 +27,7 @@ pub enum ErrorCode {
     PrivilegeExpansionDenied,
     UnknownExpansion,
     MethodNotPermittedOnSocket,
+    ArmStaticPolicy,
     StateStoreUnavailable,
     Internal,
 }

@@ -2,7 +2,7 @@
 
 Tracks which phase of `docs/implementation_plan.md` the build is in, what is done, and what is still pending. Updated and committed at the end of every phase.
 
-**Current phase:** Phase 2 — Permission model and monotonic ratchet (in progress)
+**Current phase:** Phase 3 — Structured audit and task state (in progress). Milestone **M1 (policy core) reached.**
 
 ## Environment of record
 
@@ -21,8 +21,8 @@ Tracks which phase of `docs/implementation_plan.md` the build is in, what is don
 |---|---|---|---|
 | 0 | Repository, threat model, toolchains, protocol contract | M1 | **done** |
 | 1 | Policy DSL and Rust validator | M1 | **done** |
-| 2 | Permission model and monotonic ratchet (`ratchetd`) | M1 | in progress |
-| 3 | Structured audit and task state | M2 | pending |
+| 2 | Permission model and monotonic ratchet (`ratchetd`) | M1 | **done** |
+| 3 | Structured audit and task state | M2 | in progress |
 | 4 | Execution supervisor and process lifecycle | M2 | pending |
 | 5 | Docker worker image and outer sandbox | M3 | pending |
 | 6 | Landlock integration | M4 | pending |
@@ -70,13 +70,35 @@ Tracks which phase of `docs/implementation_plan.md` the build is in, what is don
 | POL-012 deny-overrides-allow | PASS by rejection (`DENY_ALLOW_OVERLAP`; Landlock is allow-only, see `docs/policy.md`) |
 | POL-020 workspace ownership | PARTIAL: path / outside-worker rejected; ownership enforced at volume staging in Phase 5 |
 
+### Phase 2: Permission model and monotonic ratchet (2026-11-03)
+- `crates/privilege-ratchet`:
+  - `expansion_delta` / `is_subset` per permission class. Filesystem coverage is the union of ancestor grants, matching Landlock semantics. Syscalls compare by denied set; also network, tools, executables, shell and limits.
+  - Deterministic `Engine` driven by explicit ops and `now`: epochs, transition history with reason codes and deltas, mixed transitions rejected whole.
+  - Approvals are single-use, bound to the epoch and policy hash, and expire (default 900 s). Approval closes the epoch and opens a new one.
+  - Arm semantics: P1 = full ratchet; B1 = static policy (`ARM_STATIC_POLICY`); B0 = ungated, `confinement: none`.
+  - `evaluate_action` resolves workspace-relative paths, catalog executables, argv bounds, timeouts and symbolic test targets into a `WorkerRequest` dispatch.
+- `policy-model`: strict `Action` / `Operation` / `WorkerRequest` types; `test_targets` catalog in the deployment config.
+- `ratchetd` daemon:
+  - decision and approval UDS sockets (`0600`, runtime dir `0700`), `SO_PEERCRED` uid check, request-id replay protection, 1 MiB frames, connection cap;
+  - write-ahead, hash-chained, fsynced op log with a config-pinning header and a state-dir lock;
+  - refuses to start on any corruption or config mismatch. The only `unsafe` code is isolated in `src/sys.rs`.
+- `controller/rust_client.py`: `RatchetClient` (decision socket, has no approve method) and `ApprovalClient` (trusted CLI only). Policies are sent as raw JSON text so Rust sees duplicate keys.
+
+**Tests / evidence:** `cargo test`: 58 passed.
+- Engine: 21 tests (RAT-001…016, 020…023, arms, gate basics).
+- RAT-024 property test: 1000 cases against an independent oracle; a measurement run showed 2129 accepted narrowings and 1307 rejected expansions, all consistent.
+- Daemon: 9 tests over real sockets (RAT-017 race with 8 writers, 1 winner; RAT-018 restart; RAT-019 truncation/tamper/drop/empty/permissions; RAT-023 socket separation; replay; frame limit; config mismatch; double daemon).
+
+`uv run pytest`: 103 passed, including the Python ↔ ratchetd end-to-end flow. clippy, ruff, mypy clean. **All RAT-001…RAT-024: PASS.**
+
 ## Pending work (current phase)
 
-- [ ] `privilege-ratchet`: `is_subset` per permission class, delta reporting, epoch state, transition history, reason codes
-- [ ] Expansion requests → approval pending; approval opens a new epoch (no implicit inheritance); approval replay / self-approval rejected
-- [ ] `ratchetd`: UDS daemon (decision + approval sockets, `SO_PEERCRED`, replay protection), append-only hash-chained state log, fail closed on corruption
-- [ ] `evaluate_action` against the current policy hash and epoch
-- [ ] Tests RAT-001 … RAT-024 (including proptest subset invariant) and protocol tests
+- [ ] Versioned audit event schema (`schemas/event.schema.json`) and append-only JSONL writer
+- [ ] Correlation IDs (task / run / epoch / action / process)
+- [ ] Secret redaction and bounded output capture
+- [ ] Task lifecycle state machine (`workflow.md` §4)
+- [ ] Event-order assertion helpers; replay/reconstruction tool; basic report aggregation
+- [ ] AUD tests that need no execution
 
 ## Known limitations / open items
 
