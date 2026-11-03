@@ -33,6 +33,13 @@ RUN groupadd --gid 10001 worker \
     && mkdir -p /workspace/task \
     && chown 10001:10001 /workspace/task
 
+# Synthetic canaries outside every allowed hierarchy (never real data). They are
+# DAC-readable by the worker UID on purpose, so only Landlock can deny them.
+RUN mkdir -p /opt/argus-canary \
+    && echo "ARGUS-CANARY-OPT-7f3a" > /opt/argus-canary/secret.txt \
+    && echo "ARGUS-CANARY-ETC-91c2" > /etc/argus-canary.txt \
+    && chmod 0644 /opt/argus-canary/secret.txt /etc/argus-canary.txt
+
 COPY --from=rust-builder /build/target/release/argus-worker /usr/local/bin/argus-worker
 RUN chown root:root /usr/local/bin/argus-worker && chmod 0755 /usr/local/bin/argus-worker
 

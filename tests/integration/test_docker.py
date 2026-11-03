@@ -269,24 +269,24 @@ def test_check_config_unit() -> None:
         assert dc.check_config(bad, image_id="sha256:x", volume="v"), path
 
 
-# ------------------------------------------------- B1/P1 fail closed (FAIL-*)
+# ------------------------------------------- B1/P1 run kernel-confined
 
 
-def test_kernel_arms_fail_closed_in_container(
+def test_kernel_arms_run_confined_in_container(
     tmp_path: Path, image: dc.WorkerImage, sandbox: dc.TaskSandbox
 ) -> None:
-    proc, run = _start_ratchetd(tmp_path, "P1")
-    try:
-        g = Gate(run, "dkr-p1")
-        res = _run(sandbox, g.dispatch({"type": "write_file", "path": "ran.txt", "content": "x"}))
-        assert res["status"] == "confinement_failed", res
-        names = [
-            a.path for a in safe_extract(sandbox.export(), tmp_path / "x", strip_prefix="task")
-        ]
-        assert "ran.txt" not in names
-    finally:
-        proc.kill()
-        proc.wait()
+    for arm in ("P1", "B1"):
+        proc, run = _start_ratchetd(tmp_path, arm)
+        try:
+            g = Gate(run, f"dkr-{arm.lower()}")
+            res = _run(
+                sandbox, g.dispatch({"type": "write_file", "path": "ok.txt", "content": "x"})
+            )
+            assert res["status"] == "completed", res
+            assert res["confinement"]["mode"] == "kernel" and res["confinement"]["installed"], res
+        finally:
+            proc.kill()
+            proc.wait()
 
 
 # -------------------------------------------- staging/export through Docker

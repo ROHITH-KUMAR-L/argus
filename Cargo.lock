@@ -278,6 +278,7 @@ dependencies = [
  "landlock",
  "libc",
  "policy-model",
+ "policy-validator",
  "seccompiler",
  "serde",
  "serde_json",

@@ -7,12 +7,12 @@
     "read_only": [
       "/usr",
       "/etc/ld.so.cache",
-      "/dev/null",
       "/dev/urandom"
     ],
     "read_write": [
       "/workspace/task",
-      "/tmp"
+      "/tmp",
+      "/dev/null"
     ],
     "deny": [
       "/etc/shadow",

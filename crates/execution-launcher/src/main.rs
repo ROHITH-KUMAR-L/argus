@@ -43,7 +43,11 @@ struct ConfinementReport {
     mode: &'static str,
     installed: bool,
     landlock_abi: Option<u32>,
+    #[serde(skip_serializing_if = "Value::is_null")]
+    landlock: Value,
     seccomp_profile: Option<String>,
+    /// Phase 7 installs seccomp; until then this is reported as false.
+    seccomp_installed: bool,
     no_new_privs: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     detail: Option<String>,
@@ -101,7 +105,9 @@ impl WorkerResult {
                 mode: "none",
                 installed: false,
                 landlock_abi: None,
+                landlock: Value::Null,
                 seccomp_profile: None,
+                seccomp_installed: false,
                 no_new_privs: false,
                 detail: None,
             },
@@ -238,8 +244,10 @@ fn main() {
                 r.confinement = ConfinementReport {
                     mode: "kernel",
                     installed: false,
-                    landlock_abi: Some(plan.landlock_abi),
+                    landlock_abi: Some(plan.landlock.handled_abi),
+                    landlock: serde_json::to_value(&plan.landlock).unwrap_or(Value::Null),
                     seccomp_profile: Some(plan.seccomp_profile.clone()),
+                    seccomp_installed: false,
                     no_new_privs: plan.no_new_privs,
                     detail: None,
                 };

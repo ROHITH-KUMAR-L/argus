@@ -2,7 +2,7 @@
 
 Tracks which phase of `docs/implementation_plan.md` the build is in, what is done, and what is still pending. Updated and committed at the end of every phase.
 
-**Current phase:** Phase 6 — Landlock integration (in progress). Milestones M1, M2 and M3 reached.
+**Current phase:** Phase 7 — seccomp-BPF integration (in progress). Milestones M1, M2 and M3 reached.
 
 ## Environment of record
 
@@ -26,8 +26,8 @@ Tracks which phase of `docs/implementation_plan.md` the build is in, what is don
 | 3 | Structured audit and task state | M2 | **done** |
 | 4 | Execution supervisor and process lifecycle | M2 | **done** |
 | 5 | Docker worker image and outer sandbox | M3 | **done** |
-| 6 | Landlock integration | M4 | in progress |
-| 7 | seccomp-BPF integration | M4 | pending |
+| 6 | Landlock integration | M4 | **done** |
+| 7 | seccomp-BPF integration | M4 | in progress |
 | 8 | Subprocess-aware enforcement and narrowing | M5 | pending |
 | 9 | LangGraph agent loop (mock planner, then OpenAI-compatible LLM) | M6 | pending |
 | 10 | Evaluation harness (B0 / B1 / P1) | M7 | pending |
@@ -153,11 +153,45 @@ Findings fixed during the phase:
 3. The bridge network has no egress on this host. The build uses host networking; runtime is unaffected.
 4. The build script's exit status was masked by a pipe; builds are now checked explicitly.
 
+### Phase 6: Landlock integration (2026-11-03)
+- `linux-confinement::landlock_rules`:
+  - `plan` (kernel ABI probe, handled ABI = min(kernel, 9), read-only → read + execute, read-write → all handled rights, net and scope at ABI ≥ 4 / ≥ 6, required-rights check);
+  - `install` (hard-requirement ruleset, rule roots opened per component with `O_NOFOLLOW` so planted symlinks are fatal, file-only rights for non-directory roots, must be `FullyEnforced` with `no_new_privs`).
+- `argus-worker`: B1/P1 actions now run under Landlock. The result reports the full plan (kernel and handled ABI, handled rights, rules, scoping) for AUD-005. File-op children are confined too.
+- Image: synthetic canaries (`/opt/argus-canary/secret.txt`, `/etc/argus-canary.txt`) that DAC allows the worker to read, so only Landlock can deny them.
+- Templates: `/dev/null` moved to read-write (needed by `subprocess.DEVNULL`).
+- `check_config`: any seccomp/AppArmor override is now drift, not just `unconfined`.
+- `docs/confinement.md`: sequence, attribution method, observed special-path behaviour, limits.
+
+**Tests / evidence:** `tests/confinement/test_landlock.py`: 16 passed in containers. Each denial is paired with a B0 run where the same operation succeeds.
+
+| LL test | Status |
+|---|---|
+| LL-001, 002, 010 (workspace rights) | PASS |
+| LL-003…006 (read/write/unlink/mkdir outside) | PASS (EACCES; B0 succeeds) |
+| LL-007, 008 (rename/link across boundary) | PASS (EACCES/EXDEV) |
+| LL-009 (truncate) | PASS |
+| LL-011 (Python stdlib + subprocess; gcc compile and run) | PASS |
+| LL-012, 013, 014 (symlink, `..` and `/proc/self/root` alias, listing) | PASS |
+| LL-015 (no inherited fds) | PASS |
+| LL-016 (special paths) | DOCUMENTED (`docs/confinement.md`) |
+| LL-017 (older ABI) | planning unit tests PASS; kernel run **UNSUPPORTED** |
+| LL-018 (Landlock unavailable) | PASS (seccomp fault injection → `confinement_failed`, no side effect) |
+| LL-019 (ruleset failure) | PASS (planted symlink rule root → `confinement_failed`) |
+| LL-020, 021 (child, grandchild, `setsid`) | PASS |
+| LL-022 (threads) | PASS |
+
+Also AUD-005 PASS. Totals: `cargo test` 82 passed; `uv run pytest` 166 passed, 1 skipped (DKR-015). Lint clean.
+
+**Interim state:** B1/P1 currently run with Landlock but **without seccomp** (`seccomp_installed: false` is reported honestly). Phase 7 makes seccomp a required, fail-closed control. No experimental results are collected before then.
+
 ## Pending work (current phase)
 
-- [ ] `linux-confinement::landlock`: ABI probe, ABI-aware handled mask, policy → rules (read-only → read + execute, read-write → full set), rule roots opened without following symlinks, `RestrictionStatus` must be fully enforced, otherwise fail closed
-- [ ] Wire `plan` / `install` into `argus-worker` for B1/P1; record ABI and rights in the result (AUD-005)
-- [ ] Canary files outside the workspace in the image; LL-001 … LL-022 in containers (symlinks, rename/link, truncate, traversal, subprocess inheritance)
+- [ ] Spike: confirm `seccompiler` 0.5 compiles the three profiles on x86_64; record the decision (D6)
+- [ ] `linux-confinement::seccomp`: profile → BPF (EPERM for denied calls, kill on arch mismatch); install after Landlock, before `execve`; fail closed
+- [ ] Measure profile compatibility: Python and C legitimate workloads under each profile
+- [ ] Default-deny allowlist profile derived from measured syscall traces (`python-strict-v1`) with documented semantics
+- [ ] SEC-001 … SEC-020 in containers (denied syscalls return the expected errno; child, grandchild, fork/clone/exec inheritance; overhead timing)
 
 ## Known limitations / open items
 

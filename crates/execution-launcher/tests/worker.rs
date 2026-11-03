@@ -143,16 +143,22 @@ fn timeout_status() {
 }
 
 #[test]
-fn fail_011_kernel_confinement_unavailable_fails_closed() {
-    // P1 always needs kernel confinement. Until Phase 6/7 it must refuse.
+fn kernel_arms_never_run_unconfined() {
+    // Whatever happens on this host (paths may be missing), a kernel arm either
+    // ran with Landlock installed or did not run at all.
     for arm in [Arm::P1, Arm::B1] {
         let r = worker(&dispatch(
             arm,
             json!({"type":"run_tests","target":"python-pytest"}),
         ));
-        assert_eq!(r["status"], "confinement_failed", "{r}");
-        assert!(r["exit_code"].is_null());
-        assert_eq!(r["confinement"]["installed"], false);
+        assert_eq!(r["confinement"]["mode"], "kernel", "{r}");
+        let ran = !r["exit_code"].is_null() || !r["signal"].is_null();
+        if ran {
+            assert_eq!(r["confinement"]["installed"], true, "{r}");
+            assert!(r["confinement"]["landlock_abi"].as_u64().unwrap() >= 1);
+        }
+        // AUD-005: the plan (ABI, handled rights, rules) is always reported.
+        assert!(r["confinement"]["landlock"]["handled_fs"].is_array(), "{r}");
     }
 }
 
