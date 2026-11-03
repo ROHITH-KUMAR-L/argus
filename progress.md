@@ -2,7 +2,7 @@
 
 Tracks which phase of `docs/implementation_plan.md` the build is in, what is done, and what is still pending. Updated and committed at the end of every phase.
 
-**Current phase:** Phase 3 — Structured audit and task state (in progress). Milestone **M1 (policy core) reached.**
+**Current phase:** Phase 4 — Execution supervisor and process lifecycle (in progress). Milestone M1 (policy core) reached.
 
 ## Environment of record
 
@@ -22,8 +22,8 @@ Tracks which phase of `docs/implementation_plan.md` the build is in, what is don
 | 0 | Repository, threat model, toolchains, protocol contract | M1 | **done** |
 | 1 | Policy DSL and Rust validator | M1 | **done** |
 | 2 | Permission model and monotonic ratchet (`ratchetd`) | M1 | **done** |
-| 3 | Structured audit and task state | M2 | in progress |
-| 4 | Execution supervisor and process lifecycle | M2 | pending |
+| 3 | Structured audit and task state | M2 | **done** |
+| 4 | Execution supervisor and process lifecycle | M2 | in progress |
 | 5 | Docker worker image and outer sandbox | M3 | pending |
 | 6 | Landlock integration | M4 | pending |
 | 7 | seccomp-BPF integration | M4 | pending |
@@ -91,14 +91,25 @@ Tracks which phase of `docs/implementation_plan.md` the build is in, what is don
 
 `uv run pytest`: 103 passed, including the Python ↔ ratchetd end-to-end flow. clippy, ruff, mypy clean. **All RAT-001…RAT-024: PASS.**
 
+### Phase 3: Structured audit and task state (2026-11-03)
+- `controller/audit/events.py`: versioned `Event` model (strict). The enforcement layer is a separate field, so a policy-gate denial is never counted as a kernel denial. Published as `schemas/event.schema.json`.
+- `controller/audit/writer.py`: trusted append-only JSONL store (dir `0700`, file `0600`). Every row is redacted, schema-validated, hash-chained and fsynced, and resuming requires a verified chain. A write or open failure raises `AuditUnavailable` (fail closed). `verify()` checks schema, sequence, chain and permissions.
+- `controller/audit/redact.py`: exact known-secret redaction; patterns for OpenAI/Anthropic, AWS, GitHub, Slack, JWT, bearer tokens, private keys and `key=value` secrets; sensitive-key redaction for structured data; byte-bounded capture with an explicit truncation marker.
+- `controller/audit/lifecycle.py`: `workflow.md` §4 state machine; illegal transitions raise; terminal events are emitted.
+- `controller/audit/report.py`: lifecycle and policy-history reconstruction; metric aggregation by type, decision and enforcement layer.
+- `controller/audit/bridge.py`: maps ratchetd results and errors onto audit events (used by the graph in Phase 9).
+
+**Tests / evidence:** `uv run pytest`: 116 passed (13 new audit tests). AUD-001, 002, 003, 004, 008, 009, 010, 011, 013, 014 PASS at the controller level. AUD-012 has tamper *detection* (hash chain); task-side inaccessibility is proven in Phase 5 (the store is never mounted into workers). A redaction bug was found and fixed during this phase (secrets under sensitive dict keys), and its regression test is part of AUD-010.
+
+Remaining AUD cases (005 kernel install, 006 process events, 007 resource events, 015 artifact hash, 016 invalid archive) need real execution and are scheduled for Phases 4–8.
+
 ## Pending work (current phase)
 
-- [ ] Versioned audit event schema (`schemas/event.schema.json`) and append-only JSONL writer
-- [ ] Correlation IDs (task / run / epoch / action / process)
-- [ ] Secret redaction and bounded output capture
-- [ ] Task lifecycle state machine (`workflow.md` §4)
-- [ ] Event-order assertion helpers; replay/reconstruction tool; basic report aggregation
-- [ ] AUD tests that need no execution
+- [ ] `process-supervisor`: argv-only fork/exec, subreaper, process-group kill, wall timeout, rlimits, bounded stdout/stderr, rusage
+- [ ] `argus-worker` entrypoint: read and validate the `WorkerRequest` (re-hash the policy), run the operation, emit a JSON result
+- [ ] Built-in file operations (list / read / write / apply_patch) executed inside the worker
+- [ ] Controller: per-task workspace staging into a volume (tar), safe artifact export (rejects traversal, links and special files) with SHA-256 hashes (AUD-015/016)
+- [ ] Mock executor for graph tests; RES / SUB lifecycle tests inside a container
 
 ## Known limitations / open items
 

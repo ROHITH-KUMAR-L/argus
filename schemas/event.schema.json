@@ -1,0 +1,324 @@
+{
+  "$defs": {
+    "Component": {
+      "enum": [
+        "controller",
+        "graph",
+        "policy_gate",
+        "ratchet",
+        "supervisor",
+        "worker",
+        "launcher",
+        "evaluation"
+      ],
+      "title": "Component",
+      "type": "string"
+    },
+    "EventType": {
+      "enum": [
+        "TASK_STARTED",
+        "TASK_STATE_CHANGED",
+        "TASK_COMPLETED",
+        "TASK_FAILED",
+        "TASK_CANCELLED",
+        "TASK_REJECTED",
+        "POLICY_VALIDATED",
+        "POLICY_VALIDATION_FAILED",
+        "POLICY_TRANSITION_ACCEPTED",
+        "POLICY_TRANSITION_REJECTED",
+        "PRIVILEGE_EXPANSION_REQUESTED",
+        "PRIVILEGE_EXPANSION_DENIED",
+        "PRIVILEGE_EXPANSION_APPROVED",
+        "ACTION_PROPOSED",
+        "ACTION_ALLOWED",
+        "ACTION_DENIED",
+        "ACTION_APPROVAL_REQUIRED",
+        "WORKER_STARTED",
+        "WORKER_FINISHED",
+        "CONFINEMENT_INSTALLED",
+        "CONFINEMENT_INSTALL_FAILED",
+        "COMMAND_STARTED",
+        "COMMAND_FINISHED",
+        "PROCESS_SPAWNED",
+        "PROCESS_TERMINATED",
+        "RESOURCE_LIMIT_HIT",
+        "FILESYSTEM_DENIAL",
+        "SYSCALL_DENIAL",
+        "TIMEOUT",
+        "CANCELLATION",
+        "EXPORT_ACCEPTED",
+        "EXPORT_REJECTED",
+        "EXPERIMENT_RESULT",
+        "ERROR"
+      ],
+      "title": "EventType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One audit row. ``seq``, ``prev_hash`` and ``hash`` are set by the writer.",
+  "properties": {
+    "event_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Event Version",
+      "type": "string"
+    },
+    "event_id": {
+      "pattern": "^[0-9a-f]{32}$",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "seq": {
+      "minimum": 0,
+      "title": "Seq",
+      "type": "integer"
+    },
+    "timestamp_utc": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+      "title": "Timestamp Utc",
+      "type": "string"
+    },
+    "run_id": {
+      "pattern": "^[A-Za-z0-9._:-]{1,64}$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "task_id": {
+      "pattern": "^[A-Za-z0-9._:-]{1,64}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "epoch": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Epoch"
+    },
+    "scenario_id": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9._:-]{1,64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scenario Id"
+    },
+    "arm": {
+      "anyOf": [
+        {
+          "enum": [
+            "B0",
+            "B1",
+            "P1"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Arm"
+    },
+    "component": {
+      "$ref": "#/$defs/Component"
+    },
+    "event_type": {
+      "$ref": "#/$defs/EventType"
+    },
+    "decision": {
+      "anyOf": [
+        {
+          "enum": [
+            "allow",
+            "deny",
+            "approval_required"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Decision"
+    },
+    "enforcement_layer": {
+      "anyOf": [
+        {
+          "enum": [
+            "policy_gate",
+            "ratchet",
+            "landlock",
+            "seccomp",
+            "docker",
+            "rlimit",
+            "none"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Enforcement Layer"
+    },
+    "reason_code": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Z0-9_]{1,64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason Code"
+    },
+    "policy_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Policy Version"
+    },
+    "policy_hash": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Policy Hash"
+    },
+    "action_id": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9._:-]{1,64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Action Id"
+    },
+    "action": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Action"
+    },
+    "resource": {
+      "anyOf": [
+        {
+          "maxLength": 4096,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resource"
+    },
+    "process_id": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Process Id"
+    },
+    "parent_process_id": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Process Id"
+    },
+    "duration_ms": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Duration Ms"
+    },
+    "data": {
+      "additionalProperties": true,
+      "title": "Data",
+      "type": "object"
+    },
+    "prev_hash": {
+      "pattern": "^sha256:([0-9a-f]{64}|genesis)$",
+      "title": "Prev Hash",
+      "type": "string"
+    },
+    "hash": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Hash",
+      "type": "string"
+    }
+  },
+  "required": [
+    "event_id",
+    "seq",
+    "timestamp_utc",
+    "run_id",
+    "task_id",
+    "component",
+    "event_type",
+    "prev_hash",
+    "hash"
+  ],
+  "title": "Event",
+  "type": "object"
+}
