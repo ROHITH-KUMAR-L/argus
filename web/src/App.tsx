@@ -10,13 +10,17 @@ interface Demo {
   summary: string
   task_file: string
   duration: string
-  goal: string
-  workspace: string
-  input_context: string
-  success_check: { type: string; target?: string; executable?: string }
-  execution_steps: string[]
-  reading_guide: string[]
+  goal?: string
+  workspace?: string
+  input_context?: string
+  success_check?: { type: string; target?: string; executable?: string }
+  execution_steps?: string[]
+  reading_guide?: string[]
 }
+
+type CompleteDemoGuide = Demo & Required<
+  Pick<Demo, 'goal' | 'workspace' | 'input_context' | 'success_check' | 'execution_steps' | 'reading_guide'>
+>
 
 interface Preflight {
   ok: boolean
@@ -146,9 +150,21 @@ function eventMeaning(event: AuditEvent) {
 }
 
 function successCheckLabel(check: Demo['success_check']) {
+  if (!check) return 'Unavailable'
   if (check.type === 'run_tests') return `Test suite: ${check.target ?? 'configured target'}`
   if (check.type === 'run_command') return `Separate command: ${check.executable ?? 'configured executable'}`
   return check.type.replaceAll('_', ' ')
+}
+
+function hasDemoGuide(demo: Demo | undefined): demo is CompleteDemoGuide {
+  return Boolean(
+    demo?.goal
+    && demo.workspace
+    && demo.input_context
+    && demo.success_check?.type
+    && Array.isArray(demo.execution_steps)
+    && Array.isArray(demo.reading_guide),
+  )
 }
 
 function resultExplanation(result: NonNullable<RunInfo['result']>) {
@@ -219,6 +235,7 @@ function App() {
     () => demos.find((demo) => demo.id === (run?.demo ?? selectedDemo)),
     [demos, run?.demo, selectedDemo],
   )
+  const demoGuideReady = hasDemoGuide(guideDemoInfo)
   const guidePlanner = run?.planner ?? planner
   const activeRunId = selectedRunId ?? history[0]?.run_id ?? null
 
@@ -439,6 +456,14 @@ function App() {
               <section className="demo-guide" aria-label="Demo explanation">
                 <span className="eyebrow">DEMO BRIEF</span>
                 <h3>What goes into this run</h3>
+                {!demoGuideReady ? (
+                  <p className="service-error" role="status">
+                    Demo details are missing from the local API response. Restart
+                    <code> uv run python -m controller.web </code>
+                    to load the updated demo catalog.
+                  </p>
+                ) : (
+                  <>
                 <span className="field-label">Goal given to the planner</span>
                 <p className="demo-goal">{guideDemoInfo.goal}</p>
                 <dl className="demo-facts">
@@ -470,6 +495,8 @@ function App() {
                 <ul className="demo-reading">
                   {guideDemoInfo.reading_guide.map((item) => <li key={item}>{item}</li>)}
                 </ul>
+                  </>
+                )}
               </section>
             )}
             {planner === 'llm' && selectedDemo !== 'benign' && (
