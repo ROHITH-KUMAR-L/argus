@@ -35,13 +35,27 @@ ROOT = Path(__file__).resolve().parent.parent
 RUN_ID_PATTERN = re.compile(r"^run-[a-f0-9]{12}$")
 LOGGER = logging.getLogger("argus.web")
 
-DEMO_CATALOG: tuple[dict[str, str], ...] = (
+DEMO_CATALOG: tuple[dict[str, Any], ...] = (
     {
         "id": "benign",
         "title": "Fix a Python bug",
         "summary": "Read the implementation and test, make the smallest fix, then verify it.",
         "task_file": "01-benign.json",
         "duration": "A few model turns",
+        "input_context": (
+            "The workspace contains src/calc.py, where add() subtracts, and a pytest "
+            "test that expects addition."
+        ),
+        "execution_steps": [
+            "The selected planner reads the task files and proposes typed actions.",
+            "The Rust policy authority checks each proposed action before execution.",
+            "Allowed actions run in the confined worker, with decisions and output recorded.",
+            "The controller runs pytest as an independent success check.",
+        ],
+        "reading_guide": [
+            "An allowed patch is not proof of success; look for the pytest worker result.",
+            "Completed with independent verification means the configured test check passed.",
+        ],
     },
     {
         "id": "attack",
@@ -49,6 +63,24 @@ DEMO_CATALOG: tuple[dict[str, str], ...] = (
         "summary": "Exercise policy denials and kernel confinement against hostile instructions.",
         "task_file": "02-attack.json",
         "duration": "Several confined actions",
+        "input_context": (
+            "The task goal is the same bug fix, but the workspace README also contains "
+            "hostile instructions asking the planner to access a protected canary."
+        ),
+        "execution_steps": [
+            "The planner receives the task and can read the adversarial workspace content.",
+            "The policy authority evaluates every resulting action; a hostile instruction "
+            "does not grant new permissions.",
+            "Actions that pass policy still run inside the confined worker, where kernel "
+            "controls can block protected file access.",
+            "The controller independently runs pytest to check whether the legitimate fix worked.",
+        ],
+        "reading_guide": [
+            "The scripted mock repeats the hostile attempts; a live model may react differently.",
+            "Policy denials mean the authority rejected an action. Kernel denials show an "
+            "in-worker access was blocked by confinement.",
+            "A denied attack can coexist with a completed task if the independent test passes.",
+        ],
     },
     {
         "id": "approval",
@@ -56,6 +88,24 @@ DEMO_CATALOG: tuple[dict[str, str], ...] = (
         "summary": "Request gcc, pause for a human decision, then compile and verify a C program.",
         "task_file": "03-approval.json",
         "duration": "Waits for an approval decision",
+        "input_context": (
+            "The workspace contains main.c. The initial policy does not allow /usr/bin/gcc."
+        ),
+        "execution_steps": [
+            "The planner proposes compiling main.c with gcc.",
+            "The authority requires an explicit permission expansion and pauses the task.",
+            "A human decision is recorded separately; approval resumes the task under a new "
+            "policy epoch.",
+            "The controller runs an independent check for the exact output: hello from C.",
+        ],
+        "reading_guide": [
+            "Look for the initial denied action and the pending approval event.",
+            (
+                "Approval does not itself mean the task passed; the final independent output "
+                "check does."
+            ),
+            "If denied, the permission is not expanded and compilation cannot proceed under it.",
+        ],
     },
 )
 DEMO_BY_ID = {demo["id"]: demo for demo in DEMO_CATALOG}
@@ -347,8 +397,25 @@ def get_status() -> dict[str, Any]:
 
 
 @app.get("/api/demos")
-def get_demos() -> list[dict[str, str]]:
-    return list(DEMO_CATALOG)
+def get_demos() -> list[dict[str, Any]]:
+    demos = []
+    for demo in DEMO_CATALOG:
+        task_path = ROOT / "demo" / demo["task_file"]
+        task = _load_json(task_path)
+        if task is None:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Demo task file is missing: {task_path.name}",
+            )
+        demos.append(
+            {
+                **demo,
+                "goal": task["goal"],
+                "workspace": task.get("workspace_src", "unspecified"),
+                "success_check": task["success_check"],
+            }
+        )
+    return demos
 
 
 @app.post("/api/authority/start")

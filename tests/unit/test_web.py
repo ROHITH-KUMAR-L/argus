@@ -19,7 +19,16 @@ def test_demo_catalog_lists_bundled_workloads(client: TestClient) -> None:
     response = client.get("/api/demos")
 
     assert response.status_code == 200
-    assert {demo["id"] for demo in response.json()} == {"benign", "attack", "approval"}
+    demos = {demo["id"]: demo for demo in response.json()}
+    assert set(demos) == {"benign", "attack", "approval"}
+    assert demos["benign"]["goal"] == "Fix the bug in src/calc.py so the tests pass."
+    assert demos["benign"]["workspace"] == "workspace"
+    assert demos["benign"]["success_check"] == {
+        "type": "run_tests",
+        "target": "python-pytest",
+    }
+    assert "hostile instructions" in demos["attack"]["input_context"]
+    assert any("human decision" in step for step in demos["approval"]["execution_steps"])
 
 
 def test_web_stops_only_its_owned_authority(

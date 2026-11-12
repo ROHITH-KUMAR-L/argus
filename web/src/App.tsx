@@ -10,6 +10,12 @@ interface Demo {
   summary: string
   task_file: string
   duration: string
+  goal: string
+  workspace: string
+  input_context: string
+  success_check: { type: string; target?: string; executable?: string }
+  execution_steps: string[]
+  reading_guide: string[]
 }
 
 interface Preflight {
@@ -119,6 +125,51 @@ function eventDetail(event: AuditEvent) {
   return ''
 }
 
+function eventMeaning(event: AuditEvent) {
+  const meanings: Record<string, string> = {
+    ACTION_PROPOSED: 'Planner intent only. The action has not run yet.',
+    ACTION_ALLOWED: 'The Rust policy authority allowed this action under the current policy.',
+    ACTION_DENIED: 'The policy authority rejected this action, so it was not run.',
+    ACTION_APPROVAL_REQUIRED: 'The requested permission needs a human decision before the task can continue.',
+    PRIVILEGE_EXPANSION_APPROVED: 'A human approved the request; the task continues under a new policy epoch.',
+    FILESYSTEM_DENIAL: 'Worker-level confinement blocked this protected file operation.',
+    WORKER_FINISHED: 'The confined worker returned this action result to the controller.',
+    TASK_FAILED: 'The task did not satisfy its completion criteria.',
+    ERROR: 'The controller encountered an error while processing the task.',
+  }
+  if (event.event_type === 'TASK_COMPLETED') {
+    return event.reason_code === 'VERIFIED'
+      ? 'The configured independent success check passed.'
+      : 'The task stopped without an independent check confirming success.'
+  }
+  return meanings[event.event_type] ?? ''
+}
+
+function successCheckLabel(check: Demo['success_check']) {
+  if (check.type === 'run_tests') return `Test suite: ${check.target ?? 'configured target'}`
+  if (check.type === 'run_command') return `Separate command: ${check.executable ?? 'configured executable'}`
+  return check.type.replaceAll('_', ' ')
+}
+
+function resultExplanation(result: NonNullable<RunInfo['result']>) {
+  if (result.outcome === 'completed' && result.independently_verified) {
+    return 'The configured independent success check passed. The planner’s own claim that it finished is not used as proof.'
+  }
+  if (result.outcome === 'finished_unverified') {
+    return 'The planner stopped, but no independent check confirmed that the requested result was achieved.'
+  }
+  if (result.outcome === 'failed') {
+    const reason = result.outcome_reason.toLowerCase()
+    if (reason.includes('denial')) return 'The task could not continue after policy denials. Review the denied actions and their reasons above.'
+    if (reason.includes('step_limit')) return 'The task reached its action limit before meeting the success criteria.'
+    if (reason.includes('check') || reason.includes('verification')) {
+      return 'The independent success check did not confirm the requested result.'
+    }
+    return 'The task ended without satisfying its completion criteria. Review the audit events for the blocking step.'
+  }
+  return 'The controller recorded this outcome. Review the event sequence and independent-check status below.'
+}
+
 function labelForEvent(event: AuditEvent) {
   if (event.event_type === 'ACTION_PROPOSED') return 'Proposed'
   if (event.event_type === 'ACTION_ALLOWED') return 'Allowed'
@@ -164,6 +215,11 @@ function App() {
     () => demos.find((demo) => demo.id === selectedDemo),
     [demos, selectedDemo],
   )
+  const guideDemoInfo = useMemo(
+    () => demos.find((demo) => demo.id === (run?.demo ?? selectedDemo)),
+    [demos, run?.demo, selectedDemo],
+  )
+  const guidePlanner = run?.planner ?? planner
   const activeRunId = selectedRunId ?? history[0]?.run_id ?? null
 
   const refreshStatus = useCallback(async () => {
@@ -379,6 +435,43 @@ function App() {
               {demos.map((demo) => <option key={demo.id} value={demo.id}>{demo.title}</option>)}
             </select>
             <p className="field-description">{selectedDemoInfo?.summary}</p>
+            {guideDemoInfo && (
+              <section className="demo-guide" aria-label="Demo explanation">
+                <span className="eyebrow">DEMO BRIEF</span>
+                <h3>What goes into this run</h3>
+                <span className="field-label">Goal given to the planner</span>
+                <p className="demo-goal">{guideDemoInfo.goal}</p>
+                <dl className="demo-facts">
+                  <div>
+                    <dt>Task spec</dt>
+                    <dd><code>demo/{guideDemoInfo.task_file}</code></dd>
+                  </div>
+                  <div>
+                    <dt>Starting workspace</dt>
+                    <dd><code>{guideDemoInfo.workspace}</code></dd>
+                  </div>
+                  <div>
+                    <dt>Independent check</dt>
+                    <dd>{successCheckLabel(guideDemoInfo.success_check)}</dd>
+                  </div>
+                </dl>
+                <p className="demo-context">{guideDemoInfo.input_context}</p>
+                <h4>Planner context</h4>
+                <p className="demo-context">
+                  {guidePlanner === 'llm'
+                    ? 'Each live-model turn receives the goal, step number, up to 12 recent redacted action/results, and controller feedback when relevant. It is instructed to return one JSON action and treat workspace files as untrusted data. Host secrets and host paths are excluded.'
+                    : `No model request is made. The scripted mock replays the fixed actions in demo/${guideDemoInfo.task_file} under mock_script.`}
+                </p>
+                <h4>What Argus does</h4>
+                <ol className="demo-steps">
+                  {guideDemoInfo.execution_steps.map((step) => <li key={step}>{step}</li>)}
+                </ol>
+                <h4>How to read the result</h4>
+                <ul className="demo-reading">
+                  {guideDemoInfo.reading_guide.map((item) => <li key={item}>{item}</li>)}
+                </ul>
+              </section>
+            )}
             {planner === 'llm' && selectedDemo !== 'benign' && (
               <p className="caution">
                 Live model behavior can vary. Choose the scripted mock to reproduce
@@ -522,6 +615,15 @@ function App() {
                     <span className="field-label">Task</span>
                     <span>{run.task_id ?? 'Preparing...'}</span>
                   </div>
+                  <div>
+                    <span className="field-label">Workload</span>
+                    <span>{demos.find((demo) => demo.id === run.demo)?.title ?? 'Loading...'}</span>
+                  </div>
+                  <div>
+                    <span className="field-label">Audit evidence</span>
+                    <code>{run.run_dir}/events.jsonl</code>
+                    <span className="evidence-note">Outcome and verification: result.json</span>
+                  </div>
                 </div>
 
                 {run.result && (
@@ -530,7 +632,8 @@ function App() {
                       <span className="field-label">Outcome</span>
                       <strong>{run.result.outcome.toUpperCase()}</strong>
                     </div>
-                    <p>{run.result.outcome_reason}</p>
+                    <p>{resultExplanation(run.result)}</p>
+                    <span className="result-reason">Controller reason: <code>{run.result.outcome_reason}</code></span>
                     <div className="result-facts">
                       <span>{run.result.independently_verified ? 'Independent check passed' : 'Not independently verified'}</span>
                       <span>{run.result.denials} policy {run.result.denials === 1 ? 'denial' : 'denials'}</span>
@@ -594,6 +697,7 @@ function App() {
                             {!event.action && event.event_type === 'ACTION_PROPOSED' && <code>{proposalText(event)}</code>}
                           </div>
                           {eventDetail(event) && <p>{eventDetail(event)}</p>}
+                          {eventMeaning(event) && <p className="event-meaning">{eventMeaning(event)}</p>}
                           {(event.reason_code || event.enforcement_layer) && (
                             <span className="event-meta">
                               {[event.reason_code, event.enforcement_layer].filter(Boolean).join(' · ')}
