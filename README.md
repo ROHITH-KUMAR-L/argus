@@ -19,6 +19,47 @@ uv run argus run task.json           # run one task in disposable, kernel-confin
 uv run argus approve --task-id T --expansion-id X --approver you   # trusted human approval channel
 ```
 
+## Local web demo console
+
+The React console runs the bundled demos with either the live model configured
+in `.env` or the deterministic mock planner. It talks only to the local
+controller and is bound to localhost. Run the preflight before starting any
+protected demo.
+
+```bash
+uv sync && cargo build
+./scripts/build_worker_image.sh
+uv run python -m controller.web
+```
+
+In another terminal:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`. Run **Host preflight** in the page, then choose a
+workload and either **Live model** or **Scripted mock**. The live option uses
+`PLANNER`, `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL` from `.env`; the mock
+option replays the task's bundled script. A pending permission request can be
+approved or denied in the run panel. Use **Start** under Policy authority if
+the P1 daemon is offline. The page can stop a daemon it started after the task
+finishes; externally started daemons remain under terminal control. Live model
+proposals can vary; the mock is the repeatable choice for the attack and
+approval walkthroughs.
+
+To serve the production frontend from the local API instead, build it first:
+
+```bash
+cd web && npm run build
+cd ..
+uv run python -m controller.web
+```
+
+Then open `http://127.0.0.1:8000`.
+
 A task spec (`task.json`) names the task, goal, policy template, workspace directory and an independent success check:
 
 ```json

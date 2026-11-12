@@ -12,6 +12,8 @@ dependencies = [
     "langgraph-checkpoint-sqlite>=2",
     "python-dotenv>=1.0",
     "jsonschema>=4.23",
+    "fastapi>=0.162.5",
+    "uvicorn>=0.54.0",
 ]
 
 [project.scripts]

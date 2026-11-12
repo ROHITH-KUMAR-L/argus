@@ -95,6 +95,7 @@ def run_task(
     *,
     settings: Settings,
     planner: Planner,
+    run_id: str | None = None,
     executor: Executor | None = None,
     image: dc.WorkerImage | None = None,
     runs_dir: Path | None = None,
@@ -104,7 +105,7 @@ def run_task(
 ) -> RunResult:
     """Run ``spec``. Pass ``executor`` for tests (e.g. MockExecutor); otherwise a
     fresh Docker sandbox is created and destroyed around the run."""
-    run_id = f"run-{uuid.uuid4().hex[:12]}"
+    run_id = run_id or f"run-{uuid.uuid4().hex[:12]}"
     run_dir = (runs_dir or settings.runs_dir) / run_id
     run_dir.mkdir(mode=0o700, parents=True)
     rust = RatchetClient(settings.runtime_dir)
