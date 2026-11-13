@@ -121,9 +121,7 @@ BASELINE_ARMS: dict[str, dict[str, str]] = {
     },
     "B1": {
         "name": "Static sandbox",
-        "description": (
-            "Static policy gate with Landlock and seccomp confinement; no ratchet."
-        ),
+        "description": ("Static policy gate with Landlock and seccomp confinement; no ratchet."),
     },
     "P1": {
         "name": "Argus ratchet",
@@ -580,12 +578,8 @@ def _baseline_study_data(batch_dir: Path) -> dict[str, Any]:
             arm: {
                 **BASELINE_ARMS[arm],
                 "attack_success_rate": metrics["arms"][arm]["attack_success_rate"],
-                "attack_success_by_category": metrics["arms"][arm][
-                    "attack_success_by_category"
-                ],
-                "legit_task_completion_rate": metrics["arms"][arm][
-                    "legit_task_completion_rate"
-                ],
+                "attack_success_by_category": metrics["arms"][arm]["attack_success_by_category"],
+                "legit_task_completion_rate": metrics["arms"][arm]["legit_task_completion_rate"],
                 "false_denial_rate": metrics["arms"][arm]["false_denial_rate"],
             }
             for arm in BASELINE_ARMS
@@ -629,8 +623,7 @@ def _run_baseline_study(record: BaselineStudyRun, settings: Settings) -> None:
             record.completed = int(progress["completed"])
             record.total = int(progress["total"])
             record.current = {
-                key: progress[key]
-                for key in ("scenario_id", "arm", "rep", "status", "outcome")
+                key: progress[key] for key in ("scenario_id", "arm", "rep", "status", "outcome")
             }
 
     representative_scenarios = [
@@ -673,10 +666,10 @@ def start_baseline_study(request: StartBaselineStudyRequest) -> dict[str, Any]:
             for record in _runs.values()
         ):
             raise HTTPException(status_code=409, detail="A task demo is already in progress.")
-        if (
-            _baseline_study_run is not None
-            and _baseline_study_run.status in {"starting", "running"}
-        ):
+        if _baseline_study_run is not None and _baseline_study_run.status in {
+            "starting",
+            "running",
+        }:
             raise HTTPException(status_code=409, detail="A baseline study is already running.")
         if not (ROOT / "target/debug/ratchetd").is_file():
             raise HTTPException(
@@ -702,11 +695,7 @@ def start_baseline_study(request: StartBaselineStudyRequest) -> dict[str, Any]:
                     detail="No evaluation scenarios are available.",
                 )
 
-        study_id = (
-            "study-"
-            f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%S')}-"
-            f"{uuid.uuid4().hex[:6]}"
-        )
+        study_id = f"study-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S')}-{uuid.uuid4().hex[:6]}"
         study_root = settings.runs_dir / "baseline-studies"
         output_dir = study_root / study_id
         try:

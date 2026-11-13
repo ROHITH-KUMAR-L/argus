@@ -31,7 +31,17 @@ def test_demo_catalog_lists_bundled_workloads(client: TestClient) -> None:
     assert any("human decision" in step for step in demos["approval"]["execution_steps"])
 
 
-def test_baseline_endpoint_reports_saved_study_results(client: TestClient) -> None:
+def test_baseline_endpoint_reports_saved_study_results(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    settings = Settings(
+        runtime_dir=tmp_path / "runtime",
+        runs_dir=tmp_path / "runs",
+    )
+    monkeypatch.setattr(web, "_settings", lambda: settings)
+
     response = client.get("/api/studies/baseline")
 
     assert response.status_code == 200
