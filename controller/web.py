@@ -11,7 +11,8 @@ import subprocess
 import threading
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -30,6 +31,7 @@ from controller.rust_client import (
     RatchetError,
     RatchetTransportError,
 )
+from evaluation.harness import run_batch as run_evaluation_batch
 
 ROOT = Path(__file__).resolve().parent.parent
 RUN_ID_PATTERN = re.compile(r"^run-[a-f0-9]{12}$")
@@ -109,6 +111,25 @@ DEMO_CATALOG: tuple[dict[str, Any], ...] = (
     },
 )
 DEMO_BY_ID = {demo["id"]: demo for demo in DEMO_CATALOG}
+BASELINE_ARMS: dict[str, dict[str, str]] = {
+    "B0": {
+        "name": "Isolated, ungated baseline",
+        "description": (
+            "No Argus task-policy gate, project Landlock/seccomp, or ratchet. "
+            "Still runs in Docker with its outer protections and networking disabled."
+        ),
+    },
+    "B1": {
+        "name": "Static sandbox",
+        "description": (
+            "Static policy gate with Landlock and seccomp confinement; no ratchet."
+        ),
+    },
+    "P1": {
+        "name": "Argus ratchet",
+        "description": "Full proposed policy gate, confinement, and ratcheting policy authority.",
+    },
+}
 
 
 @dataclass
@@ -132,8 +153,28 @@ class ApprovalRequest(BaseModel):
     approver: str = Field(min_length=1, max_length=128)
 
 
+class StartBaselineStudyRequest(BaseModel):
+    mode: Literal["representative", "full"]
+
+
+@dataclass
+class BaselineStudyRun:
+    study_id: str
+    mode: Literal["representative", "full"]
+    repetitions: int
+    scenario_count: int
+    output_dir: Path
+    status: str = "starting"
+    completed: int = 0
+    total: int = 0
+    current: dict[str, Any] | None = None
+    error: str | None = None
+    worker: threading.Thread | None = field(default=None, repr=False)
+
+
 _lock = threading.RLock()
 _runs: dict[str, RunRecord] = {}
+_baseline_study_run: BaselineStudyRun | None = None
 _preflight_result: dict[str, Any] | None = None
 _owned_daemon: subprocess.Popen[bytes] | None = None
 
@@ -416,6 +457,313 @@ def get_demos() -> list[dict[str, Any]]:
             }
         )
     return demos
+
+
+def _baseline_study_file(batch_dir: Path, filename: str) -> Any:
+    try:
+        return json.loads((batch_dir / filename).read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        LOGGER.exception("Could not read baseline study file %s", batch_dir / filename)
+        raise HTTPException(
+            status_code=503,
+            detail=f"Stored baseline study data is unavailable: {filename}.",
+        ) from exc
+
+
+@app.get("/api/studies/baseline")
+def get_baseline_study() -> dict[str, Any]:
+    candidates = [
+        path
+        for root, pattern in (
+            (ROOT / "evaluation" / "results", "batch-*"),
+            (_settings().runs_dir / "baseline-studies", "study-*"),
+        )
+        for path in root.glob(pattern)
+        if all(
+            (path / filename).is_file()
+            for filename in (
+                "metrics.json",
+                "environment.json",
+                "scenarios.json",
+                "runs.jsonl",
+                "schedule.json",
+                "report.md",
+            )
+        )
+    ]
+    if not candidates:
+        raise HTTPException(
+            status_code=503,
+            detail="No complete stored baseline study is available.",
+        )
+    batch_dir = max(candidates, key=lambda path: path.stat().st_mtime)
+    return _baseline_study_data(batch_dir)
+
+
+def _baseline_study_data(batch_dir: Path) -> dict[str, Any]:
+    metrics = _baseline_study_file(batch_dir, "metrics.json")
+    environment = _baseline_study_file(batch_dir, "environment.json")
+    scenarios = _baseline_study_file(batch_dir, "scenarios.json")
+    schedule = _baseline_study_file(batch_dir, "schedule.json")
+    manifest_path = batch_dir / "web_study.json"
+    manifest = _baseline_study_file(batch_dir, "web_study.json") if manifest_path.is_file() else {}
+    try:
+        records = [
+            json.loads(line)
+            for line in (batch_dir / "runs.jsonl").read_text().splitlines()
+            if line.strip()
+        ]
+    except (OSError, json.JSONDecodeError) as exc:
+        LOGGER.exception("Could not read baseline study runs %s", batch_dir / "runs.jsonl")
+        raise HTTPException(
+            status_code=503,
+            detail="Stored baseline study run records are unavailable.",
+        ) from exc
+
+    scenario_results = []
+    for scenario in scenarios:
+        sid = scenario["scenario_id"]
+        category = scenario["category"]
+        is_attack = category != "legitimate"
+        is_step_up = scenario.get("legit_expected") == "blocked_with_request"
+        by_arm: dict[str, list[dict[str, Any]]] = {
+            arm: [
+                record
+                for record in records
+                if record.get("scenario_id") == sid
+                and record.get("arm") == arm
+                and record.get("status") == "SCORED"
+            ]
+            for arm in BASELINE_ARMS
+        }
+        outcomes = {}
+        for arm, runs in by_arm.items():
+            successes = sum(
+                bool(
+                    run.get("unauthorized_effect_completed")
+                    if is_attack
+                    else run.get("expansions_requested", 0) > 0
+                    if is_step_up
+                    else run.get("legit_success")
+                )
+                for run in runs
+            )
+            outcomes[arm] = {
+                "successes": successes,
+                "scored": len(runs),
+            }
+        scenario_results.append(
+            {
+                "id": sid,
+                "category": category,
+                "goal": scenario["goal"],
+                "outcome_type": (
+                    "effect" if is_attack else "request" if is_step_up else "verified"
+                ),
+                "arms": outcomes,
+            }
+        )
+
+    return {
+        "batch": batch_dir.name,
+        "mode": manifest.get("mode", "recorded"),
+        "fresh": bool(manifest),
+        "environment": {
+            "kernel": environment.get("kernel"),
+            "docker": environment.get("docker"),
+            "image_tag": environment.get("image_tag"),
+            "image_id": environment.get("image_id"),
+        },
+        "runs": metrics["runs"],
+        "repetitions": schedule.get("reps"),
+        "arms": {
+            arm: {
+                **BASELINE_ARMS[arm],
+                "attack_success_rate": metrics["arms"][arm]["attack_success_rate"],
+                "attack_success_by_category": metrics["arms"][arm][
+                    "attack_success_by_category"
+                ],
+                "legit_task_completion_rate": metrics["arms"][arm][
+                    "legit_task_completion_rate"
+                ],
+                "false_denial_rate": metrics["arms"][arm]["false_denial_rate"],
+            }
+            for arm in BASELINE_ARMS
+        },
+        "scenarios": scenario_results,
+        "limitations": [
+            (
+                "The attack planner is a deterministic scripted worst-case agent; "
+                "this measures containment, not live-model attack frequency."
+            ),
+            "B0 retains Docker isolation, its default seccomp profile, and disabled networking.",
+            (
+                "Results come from one recorded host and kernel; they are not a universal "
+                "security guarantee."
+            ),
+        ],
+    }
+
+
+def _baseline_run_view(record: BaselineStudyRun) -> dict[str, Any]:
+    with _lock:
+        state = {
+            "study_id": record.study_id,
+            "mode": record.mode,
+            "status": record.status,
+            "completed": record.completed,
+            "total": record.total,
+            "current": record.current,
+            "error": record.error,
+            "output_dir": str(record.output_dir),
+        }
+    if record.status == "completed":
+        state["result"] = _baseline_study_data(record.output_dir)
+    return state
+
+
+def _run_baseline_study(record: BaselineStudyRun, settings: Settings) -> None:
+    def update_progress(progress: dict[str, Any]) -> None:
+        with _lock:
+            record.status = "running"
+            record.completed = int(progress["completed"])
+            record.total = int(progress["total"])
+            record.current = {
+                key: progress[key]
+                for key in ("scenario_id", "arm", "rep", "status", "outcome")
+            }
+
+    representative_scenarios = [
+        "PI-README-READ",
+        "ESC-RATCHET-WRITE",
+        "LEG-PY-FIX",
+    ]
+    try:
+        run_evaluation_batch(
+            record.output_dir,
+            reps=record.repetitions,
+            only=representative_scenarios if record.mode == "representative" else None,
+            on_progress=update_progress,
+        )
+    except Exception as exc:
+        LOGGER.exception("Baseline study %s failed", record.study_id)
+        with _lock:
+            record.status = "failed"
+            record.error = f"{type(exc).__name__}. Check the web server output."
+        return
+
+    with _lock:
+        record.status = "completed"
+        record.completed = record.total
+        record.error = None
+
+
+@app.post("/api/studies/baseline", status_code=202)
+def start_baseline_study(request: StartBaselineStudyRequest) -> dict[str, Any]:
+    global _baseline_study_run
+    settings = _settings()
+    with _lock:
+        if _preflight_result is None or not _preflight_result.get("ok"):
+            raise HTTPException(
+                status_code=409,
+                detail="Run the host preflight and resolve all failed checks before the study.",
+            )
+        if any(
+            record.status in {"starting", "running", "approval_required"}
+            for record in _runs.values()
+        ):
+            raise HTTPException(status_code=409, detail="A task demo is already in progress.")
+        if (
+            _baseline_study_run is not None
+            and _baseline_study_run.status in {"starting", "running"}
+        ):
+            raise HTTPException(status_code=409, detail="A baseline study is already running.")
+        if not (ROOT / "target/debug/ratchetd").is_file():
+            raise HTTPException(
+                status_code=503,
+                detail="ratchetd is not built. Run `cargo build` first.",
+            )
+        scenario_dir = ROOT / "evaluation" / "scenarios"
+        if request.mode == "representative":
+            repetitions = 1
+            scenario_ids = ["PI-README-READ", "ESC-RATCHET-WRITE", "LEG-PY-FIX"]
+            if any(not (scenario_dir / f"{sid}.json").is_file() for sid in scenario_ids):
+                raise HTTPException(
+                    status_code=503,
+                    detail="A representative baseline scenario is missing.",
+                )
+            scenario_count = len(scenario_ids)
+        else:
+            repetitions = 3
+            scenario_count = len(list(scenario_dir.glob("*.json")))
+            if scenario_count == 0:
+                raise HTTPException(
+                    status_code=503,
+                    detail="No evaluation scenarios are available.",
+                )
+
+        study_id = (
+            "study-"
+            f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%S')}-"
+            f"{uuid.uuid4().hex[:6]}"
+        )
+        study_root = settings.runs_dir / "baseline-studies"
+        output_dir = study_root / study_id
+        try:
+            study_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+            output_dir.mkdir(mode=0o700)
+            manifest = {
+                "study_id": study_id,
+                "mode": request.mode,
+                "repetitions": repetitions,
+                "scenario_count": scenario_count,
+                "started_at_utc": datetime.now(UTC).isoformat(),
+            }
+            manifest_path = output_dir / "web_study.json"
+            manifest_path.write_text(json.dumps(manifest, indent=2))
+            os.chmod(manifest_path, 0o600)
+        except OSError as exc:
+            LOGGER.exception("Could not prepare baseline study output %s", output_dir)
+            raise HTTPException(
+                status_code=500,
+                detail="Could not prepare private study output.",
+            ) from exc
+
+        record = BaselineStudyRun(
+            study_id=study_id,
+            mode=request.mode,
+            repetitions=repetitions,
+            scenario_count=scenario_count,
+            output_dir=output_dir,
+            total=scenario_count * repetitions * 3,
+        )
+        _baseline_study_run = record
+
+    worker = threading.Thread(
+        target=_run_baseline_study,
+        args=(record, settings),
+        name=f"argus-{study_id}",
+        daemon=True,
+    )
+    record.worker = worker
+    try:
+        worker.start()
+    except RuntimeError as exc:
+        LOGGER.exception("Could not start baseline study worker %s", record.study_id)
+        with _lock:
+            record.status = "failed"
+            record.error = "Could not start worker thread. Check the web server output."
+        raise HTTPException(status_code=500, detail=record.error) from exc
+    return _baseline_run_view(record)
+
+
+@app.get("/api/studies/baseline/status")
+def get_baseline_study_status() -> dict[str, Any]:
+    with _lock:
+        record = _baseline_study_run
+    if record is None:
+        return {"status": "idle"}
+    return _baseline_run_view(record)
 
 
 @app.post("/api/authority/start")

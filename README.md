@@ -50,6 +50,19 @@ finishes; externally started daemons remain under terminal control. Live model
 proposals can vary; the mock is the repeatable choice for the attack and
 approval walkthroughs.
 
+Use the console navigation to switch between **Argus demo** and **Baseline
+study**. The baseline page can display the recorded B0/B1/P1 batch or run the
+same evaluation harness on demand: a 9-run representative comparison or the
+full 153-run, three-repetition study. Run host preflight first and keep the API
+process running until the study finishes. Fresh result files are saved under
+`runs/baseline-studies/`.
+
+B0 removes the Argus task policy gate and project confinement, but retains the
+same disposable Docker workers, Docker's outer protections, and disabled
+networking. It is not unisolated host execution. Baseline scenarios use the
+deterministic scripted planner, not the live LLM. The baseline page is separate
+from, and does not change, the protected demo runner.
+
 To serve the production frontend from the local API instead, build it first:
 
 ```bash

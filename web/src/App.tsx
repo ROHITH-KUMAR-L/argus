@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import BaselinePage from './BaselinePage'
 import './App.css'
 
 type Planner = 'mock' | 'llm'
 type DemoId = 'benign' | 'attack' | 'approval'
+type AppPage = 'demo' | 'baseline'
 
 interface Demo {
   id: DemoId
@@ -215,6 +217,9 @@ function statusLabel(status: string) {
 }
 
 function App() {
+  const [page, setPage] = useState<AppPage>(
+    () => window.location.pathname === '/baseline' ? 'baseline' : 'demo',
+  )
   const [status, setStatus] = useState<AppStatus | null>(null)
   const [demos, setDemos] = useState<Demo[]>([])
   const [history, setHistory] = useState<RunSummary[]>([])
@@ -283,6 +288,14 @@ function App() {
   }, [])
 
   useEffect(() => {
+    const handlePopState = () => {
+      setPage(window.location.pathname === '/baseline' ? 'baseline' : 'demo')
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  useEffect(() => {
     if (!activeRunId) return
     const timer = window.setInterval(() => {
       void refreshRun(activeRunId).catch((error: unknown) => {
@@ -300,14 +313,20 @@ function App() {
       setStatus((current) => current ? { ...current, preflight: report } : current)
       setNotice(
         report.ok
-          ? 'Host checks passed. Protected demo runs are enabled.'
-          : 'Preflight found failed checks. Review the results before running a task.',
+          ? 'Host checks passed. Protected demos and baseline studies are enabled.'
+          : 'Preflight found failed checks. Review the results before running a demo or study.',
       )
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Preflight failed.')
     } finally {
       setBusy(null)
     }
+  }
+
+  function navigateTo(nextPage: AppPage) {
+    const path = nextPage === 'baseline' ? '/baseline' : '/'
+    if (window.location.pathname !== path) window.history.pushState({}, '', path)
+    setPage(nextPage)
   }
 
   async function startAuthority() {
@@ -405,6 +424,30 @@ function App() {
       <header className="topbar">
         <a className="wordmark" href="/" aria-label="Argus home">ARGUS</a>
         <div className="topbar-title">Execution console</div>
+        <nav className="topbar-nav" aria-label="Main navigation">
+          <a
+            href="/"
+            aria-current={page === 'demo' ? 'page' : undefined}
+            className={page === 'demo' ? 'active' : ''}
+            onClick={(event) => {
+              event.preventDefault()
+              navigateTo('demo')
+            }}
+          >
+            Argus demo
+          </a>
+          <a
+            href="/baseline"
+            aria-current={page === 'baseline' ? 'page' : undefined}
+            className={page === 'baseline' ? 'active' : ''}
+            onClick={(event) => {
+              event.preventDefault()
+              navigateTo('baseline')
+            }}
+          >
+            Baseline study
+          </a>
+        </nav>
         <div className="topbar-status" aria-live="polite">
           <span className={`status-dot ${status?.authority.online ? 'is-ready' : ''}`} />
           <span>
@@ -416,6 +459,8 @@ function App() {
       </header>
 
       <main>
+        {page === 'demo' && (
+          <>
         <section className="intro">
           <div>
             <p className="eyebrow">LOCAL DEMO ENVIRONMENT</p>
@@ -779,9 +824,18 @@ function App() {
             </div>
           )}
         </section>
+          </>
+        )}
+        {page === 'baseline' && (
+          <BaselinePage
+            preflightOk={status?.preflight?.ok === true}
+            preflightBusy={busy === 'preflight'}
+            onRunPreflight={runPreflight}
+          />
+        )}
       </main>
       <footer>
-        <span>ARGUS / P1 POLICY ARM</span>
+        <span>{page === 'baseline' ? 'B0 / B1 / P1 EVALUATION' : 'ARGUS / P1 POLICY ARM'}</span>
         <span>Local controller · Worker network disabled</span>
       </footer>
     </div>

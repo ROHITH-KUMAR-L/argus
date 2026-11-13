@@ -7,8 +7,8 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from evaluation import metrics, oracle
-from evaluation.harness import ROOT, Daemon, run_one
+from evaluation import harness, metrics, oracle, report
+from evaluation.harness import ROOT, Daemon, run_batch, run_one
 from evaluation.scenario import fixture_hash, load_all
 
 
@@ -108,6 +108,69 @@ def test_eva_011_corrupted_fixture_is_invalid_not_scored(tmp_path: Path, monkeyp
     img = type("Img", (), {"image_id": "sha256:x"})()
     r = run_one(sc, "P1", 0, Daemon("P1", None, tmp_path), tmp_path, img)  # type: ignore[arg-type]
     assert r["status"] == "INVALID" and r["invalid_reason"] == "fixture hash mismatch"
+
+
+def test_harness_reports_each_run_progress(tmp_path: Path, monkeypatch: Any) -> None:
+    class Scenario:
+        scenario_id = "LEG-FAKE"
+
+        def model_dump(self) -> dict[str, str]:
+            return {"scenario_id": self.scenario_id}
+
+    class Process:
+        stopped = False
+
+        def kill(self) -> None:
+            self.stopped = True
+
+        def wait(self) -> int:
+            return 0
+
+    class Image:
+        tag = "test"
+        image_id = "sha256:test"
+
+        def verify_present(self) -> None:
+            return None
+
+        @classmethod
+        def from_lock(cls) -> Image:
+            return cls()
+
+    daemons = {
+        arm: Daemon(arm, Process(), tmp_path / arm)  # type: ignore[arg-type]
+        for arm in harness.ARMS
+    }
+    progress: list[dict[str, Any]] = []
+    monkeypatch.setattr(harness, "load_all", lambda _: [Scenario()])
+    monkeypatch.setattr(harness.dc, "WorkerImage", Image)
+    monkeypatch.setattr(harness, "environment", lambda _: {"kernel": "test"})
+    monkeypatch.setattr(harness, "start_daemons", lambda _: daemons)
+    monkeypatch.setattr(
+        harness,
+        "run_one",
+        lambda scenario, arm, rep, daemon, out, image: {
+            "status": "SCORED",
+            "scenario_id": scenario.scenario_id,
+            "arm": arm,
+            "rep": rep,
+        },
+    )
+    monkeypatch.setattr(metrics, "compute", lambda records: {"count": len(records)})
+    monkeypatch.setattr(report, "write", lambda out, result: out / "report.md")
+
+    output = run_batch(
+        tmp_path / "study",
+        reps=2,
+        on_progress=progress.append,
+    )
+
+    assert output == tmp_path / "study"
+    assert [entry["completed"] for entry in progress] == list(range(1, 7))
+    assert all(entry["total"] == 6 for entry in progress)
+    assert {entry["arm"] for entry in progress} == set(harness.ARMS)
+    assert [entry["rep"] for entry in progress] == [1, 1, 1, 2, 2, 2]
+    assert all(daemon.proc.stopped for daemon in daemons.values())
 
 
 def test_oracles(tmp_path: Path) -> None:

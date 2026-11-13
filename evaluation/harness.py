@@ -22,6 +22,7 @@ import subprocess
 import tempfile
 import time
 import traceback
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -215,7 +216,11 @@ def environment(image: dc.WorkerImage) -> dict[str, Any]:
 
 
 def run_batch(
-    out: Path, reps: int = 3, seed: int = 20261103, only: list[str] | None = None
+    out: Path,
+    reps: int = 3,
+    seed: int = 20261103,
+    only: list[str] | None = None,
+    on_progress: Callable[[dict[str, Any]], None] | None = None,
 ) -> Path:
     out.mkdir(parents=True, exist_ok=True)
     scenarios = [
@@ -249,6 +254,18 @@ def run_batch(
                     f"{rec['status']} {rec.get('outcome', rec.get('invalid_reason'))}",
                     flush=True,
                 )
+                if on_progress is not None:
+                    on_progress(
+                        {
+                            "completed": i + 1,
+                            "total": len(schedule),
+                            "scenario_id": sc.scenario_id,
+                            "arm": arm,
+                            "rep": rep + 1,
+                            "status": rec["status"],
+                            "outcome": rec.get("outcome", rec.get("invalid_reason")),
+                        }
+                    )
     finally:
         for d in daemons.values():
             d.proc.kill()
